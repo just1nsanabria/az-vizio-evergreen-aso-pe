@@ -1,0 +1,212 @@
+name: "Phase 1 – Terraform Infrastructure"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - ".github/workflows/infra.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "infra/**"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action to perform"
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply, destroy]
+  # Weekly scheduled plan to detect infrastructure drift
+  schedule:
+    - cron: "0 6 * * 1"
+
+# Prevent concurrent state-modifying runs. Do NOT cancel in-flight infra jobs.
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write       # OIDC token exchange with Azure
+  contents: read
+  pull-requests: write  # Post plan output as PR comment
+
+env:
+  ARM_CLIENT_ID:        ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID:        ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID:  ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_USE_OIDC:         "true"
+  TF_IN_AUTOMATION:     "true"      # Suppresses interactive hints in output
+  TF_CLI_ARGS_plan:     "-compact-warnings"
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 1: Plan
+  # Runs on every PR, push, schedule, and manual trigger.
+  # Saves the binary plan as an artifact so Apply consumes the EXACT same plan.
+  # ────────────────────────────────────────────────────────────────────────────
+  plan:
+    name: "Terraform Plan"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    outputs:
+      plan_exitcode: ${{ steps.plan.outputs.exitcode }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id:        ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:        ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id:  ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.5"
+          terraform_wrapper: true   # enables ::set-output for plan exitcode
+
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        # -detailed-exitcode: 0=no change, 1=error, 2=changes present
+        run: |
+          terraform plan \
+            -detailed-exitcode \
+            -out=tfplan \
+            -no-color \
+            2>&1 | tee plan.txt
+          echo "exitcode=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+        continue-on-error: true   # exitcode=2 (changes) is not a failure
+
+      - name: Fail if plan errored
+        if: steps.plan.outputs.exitcode == '1'
+        run: exit 1
+
+      # Upload the binary plan so the Apply job uses the exact same plan
+      - name: Upload plan artifact
+        if: steps.plan.outputs.exitcode == '2' || steps.plan.outputs.exitcode == '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ github.run_id }}
+          path: |
+            infra/tfplan
+            infra/plan.txt
+          retention-days: 5
+
+      # Post plan diff to PR as a collapsible comment
+      - name: Comment plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const planText = fs.readFileSync('infra/plan.txt', 'utf8').slice(0, 60000);
+            const fmt = '${{ steps.fmt.outcome }}' === 'success' ? '✅' : '⚠️ (fmt issues)';
+            const planIcon = { '0': '✅ No changes', '2': '⚠️ Changes pending', '1': '❌ Error' }['${{ steps.plan.outputs.exitcode }}'] || '❓';
+            const body = [
+              `### Terraform Plan  ${planIcon}`,
+              `**Format:** ${fmt}`,
+              ``,
+              `<details><summary>Show Plan Output</summary>`,
+              ``,
+              '```terraform',
+              planText,
+              '```',
+              `</details>`,
+              ``,
+              `> Triggered by @${{ github.actor }} on \`${{ github.head_ref }}\``
+            ].join('\n');
+
+            // Delete previous plan comments on this PR
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            for (const c of comments.data) {
+              if (c.user.type === 'Bot' && c.body.startsWith('### Terraform Plan')) {
+                await github.rest.issues.deleteComment({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  comment_id: c.id
+                });
+              }
+            }
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body
+            });
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 2: Apply
+  # Requires the `production` GitHub Environment (configure required reviewers
+  # under Settings → Environments → production).
+  # Only runs on push-to-main or approved workflow_dispatch apply/destroy.
+  # Downloads the exact plan artifact from the Plan job — no re-plan surprise.
+  # ────────────────────────────────────────────────────────────────────────────
+  apply:
+    name: "Terraform Apply"
+    needs: plan
+    if: |
+      needs.plan.outputs.plan_exitcode != '1' &&
+      github.event_name != 'pull_request' &&
+      github.event_name != 'schedule' &&
+      github.event.inputs.action != 'plan'
+    runs-on: ubuntu-latest
+    environment: production        # ← manual approval gate lives here
+    defaults:
+      run:
+        working-directory: infra
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id:        ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:        ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id:  ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.5"
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: terraform init
+
+      # Download the binary plan produced by the Plan job
+      - name: Download plan artifact
+        if: github.event.inputs.action != 'destroy'
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ github.run_id }}
+          path: infra/
+
+      - name: Terraform Apply
+        if: github.event.inputs.action != 'destroy'
+        run: terraform apply -auto-approve tfplan
+
+      # -─ Destroy (manual dispatch only, requires destroy input) ─────────────
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        run: terraform destroy -auto-approve

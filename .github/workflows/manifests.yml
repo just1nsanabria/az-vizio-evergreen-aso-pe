@@ -1,0 +1,158 @@
+name: "Phase 2 – Kubernetes Manifests (ASO)"
+
+# Phase 2 requires a self-hosted runner inside hub AKS so it can reach the
+# private API server. Install Actions Runner Controller (ARC) after Phase 1
+# completes — see the Deployment Guide in README.md.
+#
+# All steps are gated behind the `production` environment (same approval gate
+# as Terraform) and must be triggered manually in the correct order.
+
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: "Which step to deploy"
+        required: true
+        type: choice
+        options:
+          - 01-cert-manager
+          - 02-aso
+          - 03-spoke-cluster
+          - 04-private-endpoint
+
+concurrency:
+  group: manifests-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: "Deploy ${{ github.event.inputs.step }}"
+    runs-on: arc-runner-set     # self-hosted ARC runner inside hub AKS
+    environment: production     # requires manual approval before proceeding
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Azure login for fetching identity values and AKS credentials
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id:        ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:        ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id:  ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get hub AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group rg-eus2-hub-evergreen-02 \
+            --name aks-eus2-hub-evergreen-02 \
+            --overwrite-existing
+
+      # ── 01  cert-manager ───────────────────────────────────────────────────
+      - name: "01 – Install cert-manager"
+        if: github.event.inputs.step == '01-cert-manager'
+        run: |
+          helm repo add jetstack https://charts.jetstack.io
+          helm repo update
+
+          helm upgrade --install cert-manager jetstack/cert-manager \
+            --namespace cert-manager \
+            --create-namespace \
+            --version v1.14.4 \
+            --values manifests/01-cert-manager/values.yaml \
+            --wait \
+            --timeout 5m
+
+          echo "cert-manager pods:"
+          kubectl -n cert-manager get pods
+
+      # ── 02  ASO ───────────────────────────────────────────────────────────
+      - name: "02 – Render ASO values"
+        if: github.event.inputs.step == '02-aso'
+        run: |
+          # Pull the ASO identity client ID that Terraform provisioned
+          ASO_CLIENT_ID=$(az identity show \
+            --resource-group rg-eus2-hub-evergreen-02 \
+            --name mi-aso-hub \
+            --query clientId -o tsv)
+
+          sed \
+            -e "s|<subscription-id>|${{ secrets.AZURE_SUBSCRIPTION_ID }}|g" \
+            -e "s|<tenant-id>|${{ secrets.AZURE_TENANT_ID }}|g" \
+            -e "s|<aso-managed-identity-client-id>|${ASO_CLIENT_ID}|g" \
+            manifests/02-aso/values.yaml > /tmp/aso-values-rendered.yaml
+
+          # Mask the client ID in logs
+          echo "::add-mask::${ASO_CLIENT_ID}"
+          echo "ASO values rendered successfully"
+
+      - name: "02 – Install ASO"
+        if: github.event.inputs.step == '02-aso'
+        run: |
+          helm repo add aso2 \
+            https://raw.githubusercontent.com/Azure/azure-service-operator/main/v2/charts
+          helm repo update
+
+          helm upgrade --install azureserviceoperator aso2/azure-service-operator \
+            --namespace azureserviceoperator-system \
+            --create-namespace \
+            --version 2.9.0 \
+            --values /tmp/aso-values-rendered.yaml \
+            --wait \
+            --timeout 10m
+
+          echo "ASO pods:"
+          kubectl -n azureserviceoperator-system get pods
+
+          echo "Spot-check CRDs:"
+          kubectl get crds | grep -c "azure.com" | xargs -I{} echo "{} ASO CRDs installed"
+
+      # ── 03  Spoke cluster ─────────────────────────────────────────────────
+      - name: "03 – Deploy spoke AKS via ASO"
+        if: github.event.inputs.step == '03-spoke-cluster'
+        run: |
+          # Verify ASO is healthy before submitting the cluster manifest
+          kubectl -n azureserviceoperator-system wait \
+            --for=condition=Ready pod \
+            --selector=app.kubernetes.io/name=azure-service-operator \
+            --timeout=120s
+
+          kubectl apply -f manifests/03-spoke-cluster/managed-cluster.yaml
+
+          echo "ManagedCluster submitted. Polling for Ready (up to 20 min)..."
+          kubectl wait managedcluster aks-eus2-spoke-01 \
+            --for=condition=Ready \
+            --timeout=20m
+
+          echo "Spoke cluster status:"
+          kubectl get managedcluster aks-eus2-spoke-01 -o wide
+
+      # ── 04  Private endpoint + DNS zone group ─────────────────────────────
+      - name: "04 – Deploy private endpoint"
+        if: github.event.inputs.step == '04-private-endpoint'
+        run: |
+          kubectl apply -f manifests/04-private-endpoint/private-endpoint.yaml
+
+          echo "Waiting for PrivateEndpoint to become Ready (up to 5 min)..."
+          kubectl wait privateendpoint pe-aks-spoke-01 \
+            --for=condition=Ready \
+            --timeout=5m
+
+          kubectl apply -f manifests/04-private-endpoint/dns-zonegroup.yaml
+
+          echo "Waiting for DNS zone group to become Ready (up to 5 min)..."
+          kubectl wait privateendpointsprivatednszonegroup pe-aks-spoke-01-dnsgroup \
+            --for=condition=Ready \
+            --timeout=5m
+
+          echo ""
+          echo "Private endpoint:"
+          kubectl get privateendpoint pe-aks-spoke-01 -o wide
+          echo ""
+          echo "DNS zone group:"
+          kubectl get privateendpointsprivatednszonegroup pe-aks-spoke-01-dnsgroup -o wide
