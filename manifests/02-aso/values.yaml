@@ -1,0 +1,26 @@
+# Populate these three values from Terraform outputs after Phase 1 completes.
+#
+#   terraform -chdir=../infra output -raw subscription_id
+#   terraform -chdir=../infra output -raw tenant_id
+#   terraform -chdir=../infra output -raw aso_identity_client_id
+#
+azureSubscriptionID: "<subscription-id>"
+azureTenantID:       "<tenant-id>"
+azureClientID:       "<aso-managed-identity-client-id>"   # from: terraform output aso_identity_client_id
+
+# Workload Identity auth (recommended – no long-lived secrets)
+useWorkloadIdentityAuth: true
+
+# Install all ASO CRDs.  You can scope this to specific API groups if preferred.
+# Example: "containerservice.azure.com/*;resources.azure.com/*"
+crdPattern: "*"
+
+# IMPORTANT: must be type string to avoid a Helm bool-annotation crash
+podAnnotations:
+  azure.workload.identity/use: "true"
+
+replicaCount: 1
+
+# Metrics / logging tweaks (optional)
+metrics:
+  enable: false

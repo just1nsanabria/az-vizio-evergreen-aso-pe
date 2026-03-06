@@ -1,0 +1,87 @@
+# ---------------------------------------------------------
+# terraform.tfvars.example
+# Copy this file to terraform.tfvars and fill in all values.
+# WARNING: terraform.tfvars contains subscription IDs and tenant IDs.
+#          It is gitignored – never commit it.
+# ---------------------------------------------------------
+
+subscription_id = "<your-subscription-id>"
+tenant_id       = "<your-tenant-id>"
+location        = "eastus2"
+
+# Resource Groups
+hub_rg_name   = "rg-eus2-hub-01"
+spoke_rg_name = "rg-eus2-spoke-01"
+
+# Hub VNet  (IPv4 10.0.0.0/22 + IPv6 fd00:1::/48)
+hub_vnet_name             = "vnet-eus2-hub-01"
+hub_vnet_address_space    = ["10.0.0.0/22", "fd00:1::/48"]
+hub_aks_subnet_name       = "snet-aks"
+hub_aks_subnet_prefix     = "10.0.0.0/23"
+hub_aks_subnet_prefix_v6  = "fd00:1::/64"
+hub_mgmt_subnet_name      = "snet-mgmt"
+hub_mgmt_subnet_prefix    = "10.0.2.0/24"
+hub_mgmt_subnet_prefix_v6 = "fd00:1:0:1::/64"
+
+# Azure Firewall subnets (hub)
+hub_fw_subnet_prefix    = "10.0.3.0/26"
+hub_fw_subnet_prefix_v6 = "fd00:1:0:3::/64"
+# 4th IPv6 address of hub_fw_subnet_prefix_v6; Azure reserves ::0-::3
+firewall_private_ip_v6 = "fd00:1:0:3::4"
+
+# VPN Gateway + PE subnets (hub)
+hub_gw_subnet_prefix = "10.0.3.64/26"
+hub_pe_subnet_name   = "snet-pe"
+hub_pe_subnet_prefix = "10.0.3.128/26"
+
+# Spoke VNet  (IPv4 10.4.0.0/22 + IPv6 fd00:2::/48)
+spoke_vnet_name                 = "vnet-eus2-spoke-01"
+spoke_vnet_address_space        = ["10.4.0.0/22", "fd00:2::/48"]
+spoke_workload_subnet_name      = "snet-workload"
+spoke_workload_subnet_prefix    = "10.4.0.0/23"
+spoke_workload_subnet_prefix_v6 = "fd00:2::/64"
+spoke_aks_subnet_name           = "snet-aks"
+spoke_aks_subnet_prefix         = "10.4.2.0/23"
+spoke_aks_subnet_prefix_v6      = "fd00:2:0:1::/64"
+
+# AVNM
+avnm_name                     = "avnm-eus2-01"
+avnm_ng_hub_name              = "ng-hub"
+avnm_ng_spokes_name           = "ng-spokes"
+avnm_connectivity_config_name = "cc-hub-spoke"
+
+# Hub AKS
+aks_name               = "aks-eus2-hub-01"
+aks_dns_prefix         = "aks-eus2-hub"
+aks_node_count         = 3
+aks_node_vm_size       = "Standard_D4s_v3"
+aks_kubernetes_version = null # null = latest stable
+
+# Hub AKS dual-stack CIDRs (must not overlap spoke cluster below)
+aks_pod_cidr_v4     = "192.168.0.0/16"
+aks_pod_cidr_v6     = "fd00:10::/112"
+aks_service_cidr_v4 = "172.16.0.0/16"
+aks_service_cidr_v6 = "fd00:11::/108"
+aks_dns_service_ip  = "172.16.0.10"
+
+# Azure Firewall
+firewall_name        = "afw-eus2-hub-01"
+firewall_sku_tier    = "Standard"
+firewall_pip_name    = "pip-afw-eus2-hub-01"
+firewall_pip_v6_name = "pip-afw-eus2-hub-01-v6"
+
+# Route tables
+hub_aks_rt_name        = "rt-hub-snet-aks"
+hub_mgmt_rt_name       = "rt-hub-snet-mgmt"
+spoke_workload_rt_name = "rt-spoke-snet-workload"
+spoke_aks_rt_name      = "rt-spoke-snet-aks"
+
+# ASO managed identity (Helm install values are in manifests/02-aso/values.yaml)
+aso_identity_name = "mi-aso-hub"
+aso_namespace     = "azureserviceoperator-system"
+
+# VPN Gateway (Entra ID / AAD P2S)
+vpn_gateway_name        = "vpng-eus2-hub-01"
+vpn_gateway_pip_name    = "pip-vpng-eus2-hub-01"
+vpn_gateway_sku         = "VpnGw1AZ"
+vpn_client_address_pool = "172.20.0.0/24"

@@ -1,0 +1,86 @@
+# Spoke AKS cluster deployed via ASO ManagedCluster CRD.
+#
+# Prerequisites:
+#   1. ASO is running in hub AKS (see ../02-aso).
+#   2. The spoke route table (rt-spoke-snet-aks) was created by Terraform Phase 1
+#      and associated with the spoke snet-aks subnet — required before this
+#      cluster can come up because outboundType is userDefinedRouting.
+#   3. Replace ALL <placeholder> values using Terraform outputs:
+#
+#        terraform -chdir=../../infra output spoke_rg_id
+#        terraform -chdir=../../infra output spoke_aks_subnet_id
+#
+# API version reference:
+#   https://azure.github.io/azure-service-operator/reference/containerservice/
+apiVersion: containerservice.azure.com/v1api20231001
+kind: ManagedCluster
+metadata:
+  name: aks-eus2-spoke-01
+  namespace: default
+spec:
+  location: eastus2
+
+  owner:
+    # Output: terraform -chdir=../../infra output spoke_rg_id
+    armId: /subscriptions/<subscription-id>/resourceGroups/<spoke-rg-name>
+
+  dnsPrefix: aks-eus2-spoke
+
+  # ── Private cluster ─────────────────────────────────────────────────────────
+  apiServerAccessProfile:
+    enablePrivateCluster: true
+    # Optionally pin the private DNS zone (leave unset to let AKS auto-create):
+    # privateDNSZone: system
+
+  # ── Identity (system-assigned; ASO will manage it) ──────────────────────────
+  identity:
+    type: SystemAssigned
+
+  # ── Node pool ───────────────────────────────────────────────────────────────
+  agentPoolProfiles:
+    - name: system
+      count: 3
+      vmSize: Standard_D4s_v3
+      osType: Linux
+      mode: System
+      # Dual-stack node pool
+      osDiskSizeGB: 128
+      vnetSubnetReference:
+        # Output: terraform -chdir=../../infra output spoke_aks_subnet_id
+        armId: /subscriptions/<subscription-id>/resourceGroups/<spoke-rg-name>/providers/Microsoft.Network/virtualNetworks/<spoke-vnet-name>/subnets/snet-aks
+      nodeTaints: []
+
+  # ── Networking ───────────────────────────────────────────────────────────────
+  networkProfile:
+    networkPlugin:        azure
+    networkPluginMode:    overlay
+    networkDataplane:     azure
+    ipFamilies:
+      - IPv4
+      - IPv6
+    # IPv4 / IPv6 pod CIDRs (must not overlap hub cluster or any VNet space)
+    podCidrs:
+      - 192.169.0.0/16
+      - fd00:20::/112
+    # IPv4 / IPv6 service CIDRs
+    serviceCidrs:
+      - 172.18.0.0/16
+      - fd00:21::/108
+    dnsServiceIP: 172.18.0.10
+    # All egress must traverse the Azure Firewall via UDR (route table created
+    # by Terraform Phase 1 and associated with the spoke snet-aks subnet).
+    outboundType: userDefinedRouting
+
+  # ── Security / workload identity ──────────────────────────────────────────
+  oidcIssuerProfile:
+    enabled: true
+  securityProfile:
+    workloadIdentity:
+      enabled: true
+
+  # ── Optional add-ons ────────────────────────────────────────────────────────
+  addonProfiles:
+    azurePolicy:
+      enabled: false
+    omsAgent:
+      enabled: false

@@ -1,0 +1,27 @@
+# Terraform state & secrets – NEVER commit these
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+*.tfvars
+
+# Allow the sanitized example file
+!*.tfvars.example
+
+# Terraform plan output
+*.tfplan
+
+# OS & editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Kubernetes credentials
+kubeconfig
+*.kubeconfig
+
+# Logs
+*.log

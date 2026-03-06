@@ -1,0 +1,46 @@
+# Private Endpoint for the spoke AKS management plane.
+#
+# This creates a Private Endpoint in the hub snet-pe subnet that maps to
+# the spoke AKS cluster.  Once in place, DNS queries for the spoke API server
+# FQDN resolve to the private IP, keeping traffic fully inside the hub VNet.
+#
+# Replace ALL <placeholder> values:
+#
+#   Subscription ID:
+#     terraform -chdir=../../infra output subscription_id   (or from terraform.tfvars)
+#
+#   Hub RG name:
+#     terraform -chdir=../../infra output hub_rg_name
+#
+#   Hub VNet name + hub_pe_subnet_id:
+#     terraform -chdir=../../infra output hub_pe_subnet_id
+#
+#   Spoke cluster ARM ID:
+#     az aks show -g <spoke-rg> -n <spoke-aks-name> --query id -o tsv
+#     – or –
+#     terraform -chdir=../../infra output spoke_aks_cluster_id  (if added to outputs)
+#
+apiVersion: network.azure.com/v1api20220701
+kind: PrivateEndpoint
+metadata:
+  name: pe-aks-spoke-01
+  namespace: default
+spec:
+  location: eastus2
+
+  # Private endpoint lives in the hub resource group
+  owner:
+    armId: /subscriptions/<subscription-id>/resourceGroups/<hub-rg-name>
+
+  subnet:
+    reference:
+      # Output: terraform -chdir=../../infra output hub_pe_subnet_id
+      armId: /subscriptions/<subscription-id>/resourceGroups/<hub-rg-name>/providers/Microsoft.Network/virtualNetworks/<hub-vnet-name>/subnets/snet-pe
+
+  privateLinkServiceConnections:
+    - name: aksPrivateLink
+      privateLinkServiceReference:
+        # az aks show -g <spoke-rg> -n <spoke-aks-name> --query id -o tsv
+        armId: /subscriptions/<subscription-id>/resourceGroups/<spoke-rg-name>/providers/Microsoft.ContainerService/managedClusters/<spoke-aks-name>
+      groupIds:
+        - management
