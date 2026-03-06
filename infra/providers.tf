@@ -8,11 +8,11 @@ terraform {
   # Update storage_account_name if you used a different name in Step 3.
   # ---------------------------------------------------------------------------
   backend "azurerm" {
-    resource_group_name  = "rg-eus2-hub-evergreen-02"
+    resource_group_name  = "rg-eus2-evergreen-mgmt"
     storage_account_name = "sttfstatevsaz01"
     container_name       = "tfstate"
     key                  = "hub-spoke.tfstate"
-    use_oidc             = true
+    use_azuread_auth     = true   # forces Bearer token auth; required when key auth is disabled on the storage account
   }
 
   required_providers {
