@@ -7,12 +7,14 @@ terraform {
   # For local runs: `az login` is sufficient; no storage account key needed.
   # Update storage_account_name if you used a different name in Step 3.
   # ---------------------------------------------------------------------------
+  # use_azuread_auth=true forces Bearer token auth.
+  # Required because key-based auth is disabled on this storage account.
   backend "azurerm" {
     resource_group_name  = "rg-eus2-evergreen-mgmt"
     storage_account_name = "sttfstatevsaz01"
     container_name       = "tfstate"
     key                  = "hub-spoke.tfstate"
-    use_azuread_auth     = true   # forces Bearer token auth; required when key auth is disabled on the storage account
+    use_azuread_auth     = true
   }
 
   required_providers {
