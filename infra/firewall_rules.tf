@@ -161,6 +161,7 @@ resource "azurerm_firewall_application_rule_collection" "github_actions" {
     target_fqdns = [
       "*.actions.githubusercontent.com",
       "objects.githubusercontent.com",
+      "pkg-containers.githubusercontent.com",
       "*.pkg.github.com",
       "*.pkg.githubusercontent.com",
     ]
