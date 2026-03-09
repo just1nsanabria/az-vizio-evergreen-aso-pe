@@ -84,7 +84,7 @@ jobs:
       # Write the tfvars from the GitHub secret so Terraform has all variable
       # values without needing a committed tfvars file.
       - name: Write terraform.tfvars
-        run: echo "${{ secrets.TF_VARS }}" > terraform.tfvars
+        run: printf '%s' "${{ secrets.TF_VARS }}" > terraform.tfvars
 
       - name: Terraform Init
         run: terraform init
@@ -206,7 +206,7 @@ jobs:
       # Write the tfvars from the GitHub secret so Terraform has all variable
       # values without needing a committed tfvars file.
       - name: Write terraform.tfvars
-        run: echo "${{ secrets.TF_VARS }}" > terraform.tfvars
+        run: printf '%s' "${{ secrets.TF_VARS }}" > terraform.tfvars
 
       # Download the binary plan produced by the Plan job
       - name: Download plan artifact
