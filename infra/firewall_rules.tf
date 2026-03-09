@@ -201,6 +201,28 @@ resource "azurerm_firewall_application_rule_collection" "github_actions" {
       type = "Https"
     }
   }
+
+  rule {
+    name = "ci-tooling-install"
+    source_addresses = [
+      var.hub_vnet_address_space[0],
+    ]
+    # Domains required to install az CLI, kubectl, and Helm on the ARC runner:
+    #   aka.ms                  – Azure CLI bootstrap script redirect
+    #   packages.microsoft.com  – Azure CLI apt package repository
+    #   dl.k8s.io               – kubectl binary download
+    #   get.helm.sh             – Helm binary CDN
+    target_fqdns = [
+      "aka.ms",
+      "packages.microsoft.com",
+      "dl.k8s.io",
+      "get.helm.sh",
+    ]
+    protocol {
+      port = "443"
+      type = "Https"
+    }
+  }
 }
 
 # ---------------------------------------------------------
