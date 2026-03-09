@@ -124,6 +124,84 @@ resource "azurerm_firewall_application_rule_collection" "azure_services" {
   }
 }
 
+# GitHub – required for Actions Runner Controller (ARC)
+# The self-hosted runner inside hub AKS must reach GitHub to:
+#   - Register the runner (api.github.com)
+#   - Poll for and receive jobs (*.actions.githubusercontent.com)
+#   - Download runner binaries and action packages (objects.githubusercontent.com,
+#     *.blob.core.windows.net, *.pkg.github.com, *.pkg.githubusercontent.com)
+resource "azurerm_firewall_application_rule_collection" "github_actions" {
+  name                = "arc-github-actions"
+  azure_firewall_name = azurerm_firewall.hub.name
+  resource_group_name = azurerm_resource_group.hub.name
+  priority            = 130
+  action              = "Allow"
+
+  rule {
+    name = "github-api"
+    source_addresses = [
+      var.hub_vnet_address_space[0],
+    ]
+    target_fqdns = [
+      "api.github.com",
+      "github.com",
+      "*.github.com",
+    ]
+    protocol {
+      port = "443"
+      type = "Https"
+    }
+  }
+
+  rule {
+    name = "github-actions-runner"
+    source_addresses = [
+      var.hub_vnet_address_space[0],
+    ]
+    target_fqdns = [
+      "*.actions.githubusercontent.com",
+      "objects.githubusercontent.com",
+      "*.pkg.github.com",
+      "*.pkg.githubusercontent.com",
+    ]
+    protocol {
+      port = "443"
+      type = "Https"
+    }
+  }
+
+  rule {
+    name = "github-runner-blob-downloads"
+    source_addresses = [
+      var.hub_vnet_address_space[0],
+    ]
+    # Runner binaries and action archives are served from Azure Blob Storage
+    target_fqdns = [
+      "*.blob.core.windows.net",
+    ]
+    protocol {
+      port = "443"
+      type = "Https"
+    }
+  }
+
+  rule {
+    name = "helm-chart-repos"
+    source_addresses = [
+      var.hub_vnet_address_space[0],
+    ]
+    # Helm repos for cert-manager (charts.jetstack.io) and ASO (raw.githubusercontent.com)
+    target_fqdns = [
+      "charts.jetstack.io",
+      "raw.githubusercontent.com",
+    ]
+    protocol {
+      port = "443"
+      type = "Https"
+    }
+  }
+}
+
 # ---------------------------------------------------------
 # Azure Firewall – Network Rule Collections
 # ---------------------------------------------------------
