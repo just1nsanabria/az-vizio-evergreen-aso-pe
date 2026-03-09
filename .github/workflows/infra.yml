@@ -34,13 +34,13 @@ permissions:
 
 env:
   # ARM_ vars are read by both the azurerm provider and the azurerm backend.
-  # We do NOT set ARM_USE_OIDC here — instead we let Terraform use the Azure
-  # CLI token that azure/login@v2 already obtained via OIDC. This avoids a
-  # second independent OIDC token exchange that can fail with 403 on the
-  # storage data plane.
+  # ARM_USE_OIDC lets Terraform fetch its own OIDC token from GitHub's token
+  # endpoint — required because azure/login@v2 authenticates as a Service
+  # Principal, and Terraform CLI auth only supports User accounts.
   ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
   ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_USE_OIDC:        "true"
   TF_IN_AUTOMATION:    "true"
   TF_CLI_ARGS_plan:    "-compact-warnings"
 
