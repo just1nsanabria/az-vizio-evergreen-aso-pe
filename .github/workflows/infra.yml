@@ -81,6 +81,11 @@ jobs:
         run: terraform fmt -check -recursive
         continue-on-error: true
 
+      # Write the tfvars from the GitHub secret so Terraform has all variable
+      # values without needing a committed tfvars file.
+      - name: Write terraform.tfvars
+        run: echo "${{ secrets.TF_VARS }}" > terraform.tfvars
+
       - name: Terraform Init
         run: terraform init
 
@@ -197,6 +202,11 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
+
+      # Write the tfvars from the GitHub secret so Terraform has all variable
+      # values without needing a committed tfvars file.
+      - name: Write terraform.tfvars
+        run: echo "${{ secrets.TF_VARS }}" > terraform.tfvars
 
       # Download the binary plan produced by the Plan job
       - name: Download plan artifact
