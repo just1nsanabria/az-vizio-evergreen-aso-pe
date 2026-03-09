@@ -38,6 +38,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ARC runner images are minimal — install tooling before use
+      - name: Install Azure CLI + kubectl + Helm
+        run: |
+          # Azure CLI
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+          # kubectl
+          curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+          # Helm
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+          az version
+          kubectl version --client
+          helm version
+
       # Azure login for fetching identity values and AKS credentials
       - name: Azure Login (OIDC)
         uses: azure/login@v2
