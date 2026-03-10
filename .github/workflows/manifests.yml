@@ -66,8 +66,8 @@ jobs:
       - name: Get hub AKS credentials
         run: |
           az aks get-credentials \
-            --resource-group rg-eus2-hub-evergreen-02 \
-            --name aks-eus2-hub-evergreen-02 \
+            --resource-group rg-eus2-hub-evergreen-01 \
+            --name aks-eus2-hub-evergreen-01 \
             --overwrite-existing
 
       # ── 01  cert-manager ───────────────────────────────────────────────────
@@ -94,7 +94,7 @@ jobs:
         run: |
           # Pull the ASO identity client ID that Terraform provisioned
           ASO_CLIENT_ID=$(az identity show \
-            --resource-group rg-eus2-hub-evergreen-02 \
+            --resource-group rg-eus2-hub-evergreen-01 \
             --name mi-aso-hub \
             --query clientId -o tsv)
 
