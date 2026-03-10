@@ -30,17 +30,15 @@ spec:
 
   # Private endpoint lives in the hub resource group
   owner:
-    armId: /subscriptions/<subscription-id>/resourceGroups/<hub-rg-name>
+    armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01
 
   subnet:
     reference:
-      # Output: terraform -chdir=../../infra output hub_pe_subnet_id
-      armId: /subscriptions/<subscription-id>/resourceGroups/<hub-rg-name>/providers/Microsoft.Network/virtualNetworks/<hub-vnet-name>/subnets/snet-pe
+      armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01/providers/Microsoft.Network/virtualNetworks/vnet-eus2-hub-evergreen-01/subnets/snet-pe
 
   privateLinkServiceConnections:
     - name: aksPrivateLink
       privateLinkServiceReference:
-        # az aks show -g <spoke-rg> -n <spoke-aks-name> --query id -o tsv
-        armId: /subscriptions/<subscription-id>/resourceGroups/<spoke-rg-name>/providers/Microsoft.ContainerService/managedClusters/<spoke-aks-name>
+        armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-01/providers/Microsoft.ContainerService/managedClusters/aks-eus2-spoke-01
       groupIds:
         - management

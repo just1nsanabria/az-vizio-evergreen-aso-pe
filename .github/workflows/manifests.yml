@@ -151,29 +151,65 @@ jobs:
           kubectl get managedclusters.containerservice.azure.com/aks-eus2-spoke-01 \
             -n default -o wide || true
 
-      # ── 04  Private endpoint + DNS zone group ─────────────────────────────
+      # ── 04  Private endpoint + DNS VNet link ────────────────────────────────
       - name: "04 – Deploy private endpoint"
         if: github.event.inputs.step == '04-private-endpoint'
         run: |
           kubectl apply -f manifests/04-private-endpoint/private-endpoint.yaml
 
-          echo "Waiting for PrivateEndpoint to become Ready (up to 5 min)..."
+          echo "Waiting for PrivateEndpoint to become Ready (up to 10 min)..."
           kubectl wait privateendpoints.network.azure.com/pe-aks-spoke-01 \
             --for=condition=Ready \
             --namespace default \
-            --timeout=5m
+            --timeout=10m
 
-          kubectl apply -f manifests/04-private-endpoint/dns-zonegroup.yaml
+          echo "Private endpoint ready. Fetching spoke cluster DNS zone..."
+          # The spoke cluster MC_ RG name is deterministic
+          SPOKE_MC_RG="MC_rg-eus2-spoke-evergreen-01_aks-eus2-spoke-01_eastus2"
 
-          echo "Waiting for DNS zone group to become Ready (up to 5 min)..."
-          kubectl wait privateendpointsprivatednszonegroups.network.azure.com/pe-aks-spoke-01-dnsgroup \
-            --for=condition=Ready \
-            --namespace default \
-            --timeout=5m
+          DNS_ZONE=$(az network private-dns zone list \
+            --resource-group "${SPOKE_MC_RG}" \
+            --query "[0].name" -o tsv)
+
+          DNS_ZONE_ID=$(az network private-dns zone show \
+            --resource-group "${SPOKE_MC_RG}" \
+            --name "${DNS_ZONE}" \
+            --query id -o tsv)
+
+          echo "DNS zone: ${DNS_ZONE}"
+
+          # Link the spoke cluster's private DNS zone to the hub VNet so that
+          # VPN clients and hub workloads can resolve the spoke API server FQDN
+          LINK_EXISTS=$(az network private-dns link vnet show \
+            --resource-group "${SPOKE_MC_RG}" \
+            --zone-name "${DNS_ZONE}" \
+            --name "link-hub-vnet" \
+            --query id -o tsv 2>/dev/null || echo "")
+
+          if [[ -z "${LINK_EXISTS}" ]]; then
+            echo "Creating VNet link from spoke DNS zone to hub VNet..."
+            HUB_VNET_ID=$(az network vnet show \
+              --resource-group rg-eus2-hub-evergreen-01 \
+              --name vnet-eus2-hub-evergreen-01 \
+              --query id -o tsv)
+
+            az network private-dns link vnet create \
+              --resource-group "${SPOKE_MC_RG}" \
+              --zone-name "${DNS_ZONE}" \
+              --name "link-hub-vnet" \
+              --virtual-network "${HUB_VNET_ID}" \
+              --registration-enabled false
+            echo "VNet link created."
+          else
+            echo "VNet link already exists, skipping."
+          fi
 
           echo ""
           echo "Private endpoint:"
-          kubectl get privateendpoints.network.azure.com pe-aks-spoke-01 -o wide
+          kubectl get privateendpoints.network.azure.com/pe-aks-spoke-01 -n default -o wide || true
           echo ""
-          echo "DNS zone group:"
-          kubectl get privateendpointsprivatednszonegroups.network.azure.com pe-aks-spoke-01-dnsgroup -o wide
+          echo "DNS zone links:"
+          az network private-dns link vnet list \
+            --resource-group "${SPOKE_MC_RG}" \
+            --zone-name "${DNS_ZONE}" \
+            --query "[].{Name:name, VNet:virtualNetwork.id, State:provisioningState}" -o table
