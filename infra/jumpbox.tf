@@ -62,8 +62,9 @@ resource "azurerm_windows_virtual_machine" "jumpbox" {
   }
 
   # Disable public IP on the VM — RDP only via firewall DNAT
-  patch_mode               = "AutomaticByOS"
-  enable_automatic_updates = true
+  # 2025-datacenter-azure-edition uses hotpatch; requires AutomaticByPlatform
+  patch_mode                = "AutomaticByPlatform"
+  automatic_updates_enabled = true
 
   tags = {
     purpose = "jumpbox"
