@@ -142,12 +142,13 @@ jobs:
           kubectl apply -f manifests/03-spoke-cluster/managed-cluster.yaml
 
           echo "ManagedCluster submitted. Polling for Ready (up to 20 min)..."
-          kubectl wait managedcluster aks-eus2-spoke-01 \
+          kubectl wait managedclusters.containerservice.azure.com/aks-eus2-spoke-01 \
             --for=condition=Ready \
+            --namespace default \
             --timeout=20m
 
           echo "Spoke cluster status:"
-          kubectl get managedcluster aks-eus2-spoke-01 -o wide
+          kubectl get managedclusters.containerservice.azure.com aks-eus2-spoke-01 -o wide
 
       # ── 04  Private endpoint + DNS zone group ─────────────────────────────
       - name: "04 – Deploy private endpoint"
@@ -156,20 +157,22 @@ jobs:
           kubectl apply -f manifests/04-private-endpoint/private-endpoint.yaml
 
           echo "Waiting for PrivateEndpoint to become Ready (up to 5 min)..."
-          kubectl wait privateendpoint pe-aks-spoke-01 \
+          kubectl wait privateendpoints.network.azure.com/pe-aks-spoke-01 \
             --for=condition=Ready \
+            --namespace default \
             --timeout=5m
 
           kubectl apply -f manifests/04-private-endpoint/dns-zonegroup.yaml
 
           echo "Waiting for DNS zone group to become Ready (up to 5 min)..."
-          kubectl wait privateendpointsprivatednszonegroup pe-aks-spoke-01-dnsgroup \
+          kubectl wait privateendpointsprivatednszonegroups.network.azure.com/pe-aks-spoke-01-dnsgroup \
             --for=condition=Ready \
+            --namespace default \
             --timeout=5m
 
           echo ""
           echo "Private endpoint:"
-          kubectl get privateendpoint pe-aks-spoke-01 -o wide
+          kubectl get privateendpoints.network.azure.com pe-aks-spoke-01 -o wide
           echo ""
           echo "DNS zone group:"
-          kubectl get privateendpointsprivatednszonegroup pe-aks-spoke-01-dnsgroup -o wide
+          kubectl get privateendpointsprivatednszonegroups.network.azure.com pe-aks-spoke-01-dnsgroup -o wide

@@ -22,7 +22,7 @@ spec:
 
   owner:
     # Output: terraform -chdir=../../infra output spoke_rg_id
-    armId: /subscriptions/<subscription-id>/resourceGroups/<spoke-rg-name>
+    armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-01
 
   dnsPrefix: aks-eus2-spoke
 
@@ -47,7 +47,7 @@ spec:
       osDiskSizeGB: 128
       vnetSubnetReference:
         # Output: terraform -chdir=../../infra output spoke_aks_subnet_id
-        armId: /subscriptions/<subscription-id>/resourceGroups/<spoke-rg-name>/providers/Microsoft.Network/virtualNetworks/<spoke-vnet-name>/subnets/snet-aks
+        armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-01/providers/Microsoft.Network/virtualNetworks/vnet-eus2-spoke-evergreen-01/subnets/snet-aks
       nodeTaints: []
 
   # ── Networking ───────────────────────────────────────────────────────────────
