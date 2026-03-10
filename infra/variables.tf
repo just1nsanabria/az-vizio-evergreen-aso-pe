@@ -352,7 +352,4 @@ variable "jumpbox_admin_password" {
   sensitive   = true
 }
 
-variable "jumpbox_rdp_source_ip" {
-  description = "Source IP address permitted to RDP to the jumpbox through the firewall DNAT rule."
-  type        = string
-}
+

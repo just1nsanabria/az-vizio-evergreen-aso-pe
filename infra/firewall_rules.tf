@@ -1,29 +1,4 @@
 # ---------------------------------------------------------
-# Azure Firewall – NAT Rule Collections (DNAT)
-# ---------------------------------------------------------
-
-# RDP to jumpbox – restricted to a single source IP
-resource "azurerm_firewall_nat_rule_collection" "jumpbox_rdp" {
-  name                = "nrc-jumpbox-rdp"
-  azure_firewall_name = azurerm_firewall.hub.name
-  resource_group_name = azurerm_resource_group.hub.name
-  priority            = 100
-  action              = "Dnat"
-
-  rule {
-    name = "rdp-to-jumpbox"
-    source_addresses = [
-      var.jumpbox_rdp_source_ip,
-    ]
-    destination_addresses = [azurerm_public_ip.firewall.ip_address]
-    destination_ports     = ["3389"]
-    protocols             = ["TCP"]
-    translated_address    = azurerm_network_interface.jumpbox.private_ip_address
-    translated_port       = "3389"
-  }
-}
-
-# ---------------------------------------------------------
 # Azure Firewall – Application Rule Collections
 # ---------------------------------------------------------
 

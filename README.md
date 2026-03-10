@@ -26,7 +26,6 @@ via GitHub Actions with OIDC authentication and remote Terraform state.
 | ASO managed identity | `mi-aso-hub` | Federated OIDC credential, Contributor on subscription |
 | VPN Gateway | `vpng-eus2-hub-evergreen-01` | `VpnGw1AZ`, OpenVPN, Entra ID P2S auth |
 | Windows jumpbox VM | `vm-jumpbox-01` | `Standard_B2ms`, WS2025, in `snet-mgmt`, no public IP |
-| Firewall DNAT rule | `nrc-jumpbox-rdp` | RDP port 3389, source-restricted to single IP |
 
 ### Phase 2 – Kubernetes / ASO (`manifests/`)
 
@@ -214,7 +213,6 @@ vpn_client_address_pool = "172.20.0.0/24"
 jumpbox_vm_name        = "vm-jumpbox-01"
 jumpbox_admin_username = "azureadmin"
 jumpbox_admin_password = "<strong-password>"
-jumpbox_rdp_source_ip  = "<your-public-ip>"
 ```
 
 ### 5. GitHub Actions environment (approval gate)
@@ -300,21 +298,21 @@ Each run requires `production` environment approval before executing.
 
 ## Connecting to the jumpbox
 
-RDP is accessible via the Azure Firewall public IP on port 3389, restricted to the source IP configured in `jumpbox_rdp_source_ip`.
+The jumpbox has no public IP. Connect the P2S VPN first, then RDP directly to its private IP in `snet-mgmt`:
+
+```bash
+# Find the private IP
+az vm show \
+  --resource-group rg-eus2-hub-evergreen-01 \
+  --name vm-jumpbox-01 \
+  --show-details \
+  --query privateIps -o tsv
+```
 
 ```
-RDP target: <firewall-public-ip>:3389
+RDP target: <private-ip>:3389
 Username:   azureadmin
 Password:   <jumpbox_admin_password from TF_VARS>
-```
-
-Find the firewall public IP:
-```bash
-az network firewall show \
-  --name afw-eus2-hub-evergreen-01 \
-  --resource-group rg-eus2-hub-evergreen-01 \
-  --query "ipConfigurations[0].publicIpAddress.id" -o tsv | \
-  xargs az network public-ip show --ids --query ipAddress -o tsv
 ```
 
 ---
@@ -380,7 +378,7 @@ kubectl get nodes
 
 **Private endpoint in hub `snet-pe` for spoke access** — Hub-resident clients (`kubectl`, ARC runner, VPN users, jumpbox) reach the spoke API server through a PE NIC in the hub VNet via Azure Private Link. The spoke VNet is never in the traffic path for management-plane access.
 
-**Firewall DNAT for jumpbox RDP** — The jumpbox has no public IP. RDP ingress is NATed through the Azure Firewall with a source IP restriction, giving a single auditable ingress point.
+**Jumpbox access via P2S VPN** — The jumpbox has no public IP and no DNAT rule. RDP is only possible after connecting the P2S VPN, limiting exposure to authenticated Entra ID users.
 
 ---
 
