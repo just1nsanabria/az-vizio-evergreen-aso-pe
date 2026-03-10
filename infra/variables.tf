@@ -329,3 +329,30 @@ variable "vpn_client_address_pool" {
   type        = string
   default     = "172.20.0.0/24"
 }
+
+# ---------------------------------------------------------
+# Jumpbox
+# ---------------------------------------------------------
+
+variable "jumpbox_vm_name" {
+  description = "Name of the Windows jumpbox VM."
+  type        = string
+  default     = "vm-jumpbox-01"
+}
+
+variable "jumpbox_admin_username" {
+  description = "Local administrator username for the jumpbox VM."
+  type        = string
+  default     = "azureadmin"
+}
+
+variable "jumpbox_admin_password" {
+  description = "Local administrator password for the jumpbox VM. Store in a secret; never commit plaintext."
+  type        = string
+  sensitive   = true
+}
+
+variable "jumpbox_rdp_source_ip" {
+  description = "Source IP address permitted to RDP to the jumpbox through the firewall DNAT rule."
+  type        = string
+}
