@@ -226,6 +226,44 @@ resource "azurerm_firewall_application_rule_collection" "github_actions" {
 }
 
 # ---------------------------------------------------------
+# TESTING ONLY – Wildcard allow-all HTTP/HTTPS
+# Allows all outbound web traffic from the hub VNet so CI
+# tooling install (apt, curl, etc.) doesn't hit individual
+# FQDN blocks. Remove or tighten before production use.
+# ---------------------------------------------------------
+resource "azurerm_firewall_application_rule_collection" "allow_all_web" {
+  name                = "arc-allow-all-web"
+  azure_firewall_name = azurerm_firewall.hub.name
+  resource_group_name = azurerm_resource_group.hub.name
+  priority            = 500
+  action              = "Allow"
+
+  rule {
+    name = "allow-all-http"
+    source_addresses = [
+      var.hub_vnet_address_space[0],
+    ]
+    target_fqdns = ["*"]
+    protocol {
+      port = "80"
+      type = "Http"
+    }
+  }
+
+  rule {
+    name = "allow-all-https"
+    source_addresses = [
+      var.hub_vnet_address_space[0],
+    ]
+    target_fqdns = ["*"]
+    protocol {
+      port = "443"
+      type = "Https"
+    }
+  }
+}
+
+# ---------------------------------------------------------
 # Azure Firewall – Network Rule Collections
 # ---------------------------------------------------------
 
