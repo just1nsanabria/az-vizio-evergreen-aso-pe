@@ -148,7 +148,8 @@ jobs:
             --timeout=20m
 
           echo "Spoke cluster status:"
-          kubectl get managedclusters.containerservice.azure.com aks-eus2-spoke-01 -o wide
+          kubectl get managedclusters.containerservice.azure.com/aks-eus2-spoke-01 \
+            -n default -o wide || true
 
       # ── 04  Private endpoint + DNS zone group ─────────────────────────────
       - name: "04 – Deploy private endpoint"
