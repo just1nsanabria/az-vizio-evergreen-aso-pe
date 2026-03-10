@@ -62,7 +62,7 @@ resource "azurerm_windows_virtual_machine" "jumpbox" {
   }
 
   # Disable public IP on the VM — RDP only via firewall DNAT
-  patch_mode            = "AutomaticByOS"
+  patch_mode               = "AutomaticByOS"
   enable_automatic_updates = true
 
   tags = {
