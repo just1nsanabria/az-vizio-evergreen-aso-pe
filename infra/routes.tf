@@ -74,6 +74,18 @@ resource "azurerm_route" "hub_mgmt_default_v6" {
   next_hop_in_ip_address = var.firewall_private_ip_v6
 }
 
+# Return path for P2S VPN clients – without this, replies from snet-mgmt
+# (forced through the firewall by the 0.0.0.0/0 UDR) would hit the firewall
+# with no session state and be dropped. Routing return traffic back via
+# VirtualNetworkGateway keeps the path symmetric.
+resource "azurerm_route" "hub_mgmt_vpn_clients" {
+  name                = "route-vpn-clients"
+  resource_group_name = azurerm_resource_group.hub.name
+  route_table_name    = azurerm_route_table.hub_mgmt.name
+  address_prefix      = var.vpn_client_address_pool
+  next_hop_type       = "VirtualNetworkGateway"
+}
+
 resource "azurerm_subnet_route_table_association" "hub_mgmt" {
   subnet_id      = azurerm_subnet.mgmt.id
   route_table_id = azurerm_route_table.hub_mgmt.id

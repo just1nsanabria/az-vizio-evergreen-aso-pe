@@ -286,3 +286,49 @@ resource "azurerm_firewall_network_rule_collection" "ntp" {
     protocols             = ["UDP"]
   }
 }
+
+# RDP from P2S VPN clients to jumpbox – allows TCP/3389 from the VPN client
+# address pool to the management subnet in case VPN traffic traverses the
+# firewall (e.g. from other subnets or future routing changes).
+resource "azurerm_firewall_network_rule_collection" "vpn_jumpbox_rdp" {
+  name                = "nrc-vpn-to-jumpbox"
+  azure_firewall_name = azurerm_firewall.hub.name
+  resource_group_name = azurerm_resource_group.hub.name
+  priority            = 200
+  action              = "Allow"
+
+  rule {
+    name                  = "rdp-from-vpn"
+    source_addresses      = [var.vpn_client_address_pool]
+    destination_addresses = [var.hub_mgmt_subnet_prefix]
+    destination_ports     = ["3389"]
+    protocols             = ["TCP"]
+  }
+}
+
+# ---------------------------------------------------------
+# Azure Firewall – NAT Rule Collections
+# ---------------------------------------------------------
+
+# Jumpbox RDP via DNAT – maps an inbound connection on the firewall's
+# public IPv4 address port 3389 to the jumpbox private IP. This enables
+# direct RDP access from the internet without a public IP on the VM.
+# The matching network rule (nrc-vpn-to-jumpbox) covers VPN client paths;
+# DNAT implicitly adds a corresponding allow rule for the translated flow.
+resource "azurerm_firewall_nat_rule_collection" "jumpbox_rdp" {
+  name                = "nrc-jumpbox-rdp"
+  azure_firewall_name = azurerm_firewall.hub.name
+  resource_group_name = azurerm_resource_group.hub.name
+  priority            = 100
+  action              = "Dnat"
+
+  rule {
+    name                  = "rdp-to-jumpbox"
+    source_addresses      = ["*"]
+    destination_addresses = [azurerm_public_ip.firewall.ip_address]
+    destination_ports     = ["3389"]
+    translated_address    = azurerm_network_interface.jumpbox.private_ip_address
+    translated_port       = "3389"
+    protocols             = ["TCP"]
+  }
+}
