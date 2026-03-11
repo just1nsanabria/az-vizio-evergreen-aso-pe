@@ -218,11 +218,7 @@ jobs:
           kubectl apply -f /tmp/dns-a-record-rendered.yaml
 
           echo "Waiting for PrivateDnsZonesARecord to become Ready (up to 3 min)..."
-          kubectl wait privatednszones.network.azure.com/spoke-api-server-pe-override \
-            --for=condition=Ready \
-            --namespace default \
-            --timeout=3m || \
-          kubectl wait privatednszonesakrecords.network.azure.com/spoke-api-server-pe-override \
+          kubectl wait privatednszonesarecords.network.azure.com/spoke-api-server-pe-override \
             --for=condition=Ready \
             --namespace default \
             --timeout=3m
