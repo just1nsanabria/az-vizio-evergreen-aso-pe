@@ -173,6 +173,21 @@ jobs:
 
           echo "DNS zone: ${DNS_ZONE}"
 
+          # Render and apply the DNS zone group — this creates the A record in the
+          # private DNS zone pointing to the PE NIC IP. Must happen before the VNet
+          # link so the record exists when hub workloads and VPN clients query it.
+          sed "s|<dns-zone-name>|${DNS_ZONE}|g" \
+            manifests/04-private-endpoint/dns-zonegroup.yaml \
+            > /tmp/dns-zonegroup-rendered.yaml
+
+          kubectl apply -f /tmp/dns-zonegroup-rendered.yaml
+
+          echo "Waiting for PrivateDnsZoneGroup to become Ready (up to 5 min)..."
+          kubectl wait privateendpointsprivatednszonegroups.network.azure.com/pe-aks-spoke-01-dnsgroup \
+            --for=condition=Ready \
+            --namespace default \
+            --timeout=5m
+
           # Render the VNet link template by substituting the GUID-based zone name,
           # then let ASO reconcile the actual Azure resource.
           sed "s|<dns-zone-name>|${DNS_ZONE}|g" \
@@ -190,6 +205,9 @@ jobs:
           echo ""
           echo "Private endpoint:"
           kubectl get privateendpoints.network.azure.com/pe-aks-spoke-01 -n default -o wide || true
+          echo ""
+          echo "DNS zone group:"
+          kubectl get privateendpointsprivatednszonegroups.network.azure.com/pe-aks-spoke-01-dnsgroup -n default -o wide || true
           echo ""
           echo "DNS VNet link:"
           kubectl get privatednszonesvirtualnetworklinks.network.azure.com/link-hub-vnet-spoke -n default -o wide || true

@@ -1,20 +1,14 @@
 # DNS Zone Group for the spoke AKS Private Endpoint.
 #
 # Links the private DNS zone auto-created by AKS (in the MC_ resource group)
-# to the private endpoint so DNS queries for the spoke API server FQDN resolve
-# to its private IP from within the hub VNet (and over VPN).
+# to the private endpoint. Azure automatically creates an A record in that zone
+# pointing to the PE NIC private IP, so DNS queries for the spoke API server
+# FQDN resolve to a 10.x.x.x address from within the hub VNet and over VPN.
 #
-# The private DNS zone name contains a GUID that is unique per cluster.
-# Retrieve it after the ManagedCluster and PrivateEndpoint are ready:
-#
-#   az network private-dns zone list \
-#     -g mc_<spoke-rg>_<spoke-aks-name>_<region> \
-#     --query "[].name" -o tsv
-#
-# The zone name will look like:
-#   <guid>.privatelink.<region>.azmk8s.io
-#
-# Replace ALL <placeholder> values below.
+# The DNS zone name contains a cluster-unique GUID that is only known after the
+# ManagedCluster is provisioned. The manifests workflow queries it at runtime
+# and substitutes <dns-zone-name> via sed before kubectl apply — do not replace
+# this placeholder manually.
 #
 apiVersion: network.azure.com/v1api20220701
 kind: PrivateEndpointsPrivateDnsZoneGroup
@@ -29,6 +23,6 @@ spec:
   privateDnsZoneConfigs:
     - name: aks-dns-config
       privateDnsZoneReference:
-        # Format: /subscriptions/<sub>/resourceGroups/mc_<spoke-rg>_<cluster-name>_<region>
-        #           /providers/Microsoft.Network/privateDnsZones/<guid>.privatelink.<region>.azmk8s.io
-        armId: /subscriptions/<subscription-id>/resourceGroups/mc_<spoke-rg-name>_<spoke-aks-name>_<region>/providers/Microsoft.Network/privateDnsZones/<guid>.privatelink.<region>.azmk8s.io
+        # <dns-zone-name> is substituted at runtime by the manifests workflow.
+        # Format: <guid>.privatelink.eastus2.azmk8s.io
+        armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/MC_rg-eus2-spoke-evergreen-01_aks-eus2-spoke-01_eastus2/providers/Microsoft.Network/privateDnsZones/<dns-zone-name>
