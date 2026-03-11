@@ -111,3 +111,11 @@ output "vpn_gateway_public_ip" {
   description = "Public IP of the VPN gateway – use this as the tunnel endpoint in your P2S VPN client."
   value       = azurerm_public_ip.vpn_gateway.ip_address
 }
+
+# ---------------------------------------------------------
+# DNS Private Resolver
+# ---------------------------------------------------------
+output "dns_resolver_inbound_ip" {
+  description = "Private IP of the DNS resolver inbound endpoint. Automatically pushed to P2S VPN clients as dns_servers; also useful for configuring on-premises DNS forwarders."
+  value       = azurerm_private_dns_resolver_inbound_endpoint.hub.ip_configurations[0].private_ip_address
+}

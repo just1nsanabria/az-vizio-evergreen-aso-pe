@@ -15,7 +15,7 @@ via GitHub Actions with OIDC authentication and remote Terraform state.
 |---|---|---|
 | Resource groups | `rg-eus2-hub-evergreen-01`, `rg-eus2-spoke-evergreen-01` | |
 | Hub VNet (dual-stack) | `vnet-eus2-hub-evergreen-01` | `10.0.0.0/22` + `fd00:1::/48` |
-| Hub subnets | `snet-aks`, `snet-mgmt`, `snet-pe`, `AzureFirewallSubnet`, `GatewaySubnet` | |
+| Hub subnets | `snet-aks`, `snet-mgmt`, `snet-pe`, `snet-dns-inbound`, `AzureFirewallSubnet`, `GatewaySubnet` | |
 | Spoke VNet (dual-stack) | `vnet-eus2-spoke-evergreen-01` | `10.4.0.0/22` + `fd00:2::/48` |
 | Spoke subnets | `snet-aks`, `snet-workload` | |
 | AVNM | `avnm-evergreen-01` | Hub-spoke connectivity config + deployment |
@@ -238,13 +238,9 @@ The Plan job runs first (no approval needed). The Apply job then waits for a `pr
 #### Step A — Connect P2S VPN
 
 1. In the Azure Portal, navigate to `vpng-eus2-hub-evergreen-01` → **Point-to-site configuration** → **Download VPN client**.
-2. Extract the zip and open the `OpenVPN/vpnconfig.ovpn` file.
-3. Add the following line to the config to enable private DNS resolution over the tunnel:
-   ```
-   dhcp-option DNS 168.63.129.16
-   ```
-4. Import into your OpenVPN client and connect using your Entra ID credentials.
-5. Verify connectivity:
+2. Import the downloaded `.ovpn` profile into your OpenVPN client and connect using your Entra ID credentials.
+   > Private DNS resolution (hub and spoke private zones) is handled automatically — the VPN gateway pushes the DNS Private Resolver inbound endpoint IP to all P2S clients via `dns_servers`. No manual `.ovpn` edits are required.
+3. Verify connectivity:
    ```bash
    az aks get-credentials \
      --resource-group rg-eus2-hub-evergreen-01 \

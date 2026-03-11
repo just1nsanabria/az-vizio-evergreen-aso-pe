@@ -48,6 +48,24 @@ resource "azurerm_subnet" "hub_pe" {
   private_endpoint_network_policies = "Disabled"
 }
 
+# DNS Private Resolver inbound endpoint subnet.
+# Azure requires a dedicated /28+ subnet with no other resources.
+# Delegation is required before the inbound endpoint can be created.
+resource "azurerm_subnet" "dns_inbound" {
+  name                 = var.hub_dns_inbound_subnet_name
+  resource_group_name  = azurerm_resource_group.hub.name
+  virtual_network_name = azurerm_virtual_network.hub.name
+  address_prefixes     = [var.hub_dns_inbound_subnet_prefix]
+
+  delegation {
+    name = "Microsoft.Network.dnsResolvers"
+    service_delegation {
+      name    = "Microsoft.Network/dnsResolvers"
+      actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+    }
+  }
+}
+
 # ---------------------------------------------------------
 # Spoke Virtual Network
 # ---------------------------------------------------------

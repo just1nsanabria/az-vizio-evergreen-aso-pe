@@ -331,6 +331,26 @@ variable "vpn_client_address_pool" {
 }
 
 # ---------------------------------------------------------
+# DNS Private Resolver
+# ---------------------------------------------------------
+variable "dns_resolver_name" {
+  description = "Name of the Azure DNS Private Resolver deployed in the hub VNet."
+  type        = string
+  default     = "dnspr-eus2-hub-evergreen-01"
+}
+
+variable "hub_dns_inbound_subnet_name" {
+  description = "Name of the inbound endpoint subnet for the DNS Private Resolver."
+  type        = string
+  default     = "snet-dns-inbound"
+}
+
+variable "hub_dns_inbound_subnet_prefix" {
+  description = "IPv4 address prefix for the DNS Private Resolver inbound subnet (/28 minimum, dedicated). Must fall within hub_vnet_address_space."
+  type        = string
+}
+
+# ---------------------------------------------------------
 # Jumpbox
 # ---------------------------------------------------------
 

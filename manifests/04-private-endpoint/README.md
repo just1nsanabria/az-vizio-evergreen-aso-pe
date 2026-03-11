@@ -53,8 +53,7 @@ kubectl get privateendpointsprivatednszonegroup pe-aks-spoke-01-dnsgroup -o yaml
 
 ## Step 4 – Verify DNS resolution
 
-From any pod inside hub AKS (or from your VPN-connected workstation after adding
-`168.63.129.16` as DNS):
+From any pod inside hub AKS or from your VPN-connected workstation:
 
 ```bash
 # Replace with actual spoke API server FQDN from:
@@ -65,9 +64,7 @@ nslookup <spoke-private-fqdn>
 
 ## VPN client DNS note
 
-P2S VPN clients do not automatically use Azure's internal DNS (`168.63.129.16`).
-Add the following line to your downloaded `.ovpn` profile **before** connecting:
-
-```
-dhcp-option DNS 168.63.129.16
-```
+Private DNS resolution is handled automatically by the **Azure DNS Private Resolver**
+(`dnspr-eus2-hub-evergreen-01`) deployed in the hub VNet. The VPN gateway pushes the
+resolver's inbound endpoint IP to P2S clients as `dns_servers` — no manual `.ovpn`
+edit is required.
