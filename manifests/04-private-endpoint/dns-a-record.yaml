@@ -1,0 +1,37 @@
+# ASO A record override for the spoke AKS private DNS zone.
+#
+# By default, AKS creates one A record in the private DNS zone pointing to the
+# API server NIC inside the spoke VNet (10.4.x.x). This record overrides that
+# entry so the spoke FQDN resolves to the Private Endpoint NIC in hub snet-pe
+# (10.0.3.x) instead. This keeps all spoke API server traffic inside the hub
+# VNet and reachable from VPN clients without traversing AVNM peering.
+#
+# All three placeholders are substituted at runtime by the manifests workflow:
+#   <dns-zone-name>  – GUID-based zone name  (e.g. 956e6f88-...azmk8s.io)
+#   <a-record-name>  – hostname prefix of the spoke private FQDN
+#                      (e.g. aks-eus2-spoke-awahnre4)
+#   <pe-nic-ip>      – private IP of the pe-aks-spoke-01 NIC in hub snet-pe
+#                      (10.0.3.x, assigned dynamically when the PE is created)
+#
+apiVersion: network.azure.com/v1api20200601
+kind: PrivateDnsZonesARecord
+metadata:
+  # Stable Kubernetes object name — azureName below controls the Azure record name.
+  name: spoke-api-server-pe-override
+  namespace: default
+spec:
+  # azureName must match the hostname prefix of the spoke private FQDN exactly
+  # so it overrides the AKS-created record rather than creating a second one.
+  azureName: <a-record-name>
+
+  owner:
+    # Owner is the private DNS zone in the spoke MC_ resource group.
+    # <dns-zone-name> is substituted at runtime by the manifests workflow.
+    armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/MC_rg-eus2-spoke-evergreen-01_aks-eus2-spoke-01_eastus2/providers/Microsoft.Network/privateDnsZones/<dns-zone-name>
+
+  ttl: 300
+
+  aRecords:
+    # <pe-nic-ip> is the private IP of pe-aks-spoke-01 in hub snet-pe (10.0.3.x).
+    # Substituted at runtime by the manifests workflow after the PE is Ready.
+    - ipv4Address: <pe-nic-ip>

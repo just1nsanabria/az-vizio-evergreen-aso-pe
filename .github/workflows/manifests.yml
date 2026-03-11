@@ -163,19 +163,34 @@ jobs:
             --namespace default \
             --timeout=10m
 
-          echo "Private endpoint ready. Fetching spoke cluster DNS zone name..."
-          # MC_ RG name is deterministic from spoke RG + cluster name + region
+          echo "Private endpoint ready. Gathering runtime values..."
           SPOKE_MC_RG="MC_rg-eus2-spoke-evergreen-01_aks-eus2-spoke-01_eastus2"
 
+          # GUID-based private DNS zone name — only known after cluster is provisioned
           DNS_ZONE=$(az network private-dns zone list \
             --resource-group "${SPOKE_MC_RG}" \
             --query "[0].name" -o tsv)
+          echo "DNS zone:        ${DNS_ZONE}"
 
-          echo "DNS zone: ${DNS_ZONE}"
+          # Hostname prefix of the spoke private FQDN — must match the AKS-created
+          # A record exactly so the override replaces it rather than adding a second one
+          SPOKE_FQDN=$(az aks show \
+            -g rg-eus2-spoke-evergreen-01 \
+            -n aks-eus2-spoke-01 \
+            --query privateFqdn -o tsv)
+          A_RECORD_NAME=$(echo "${SPOKE_FQDN}" | cut -d. -f1)
+          echo "A record name:   ${A_RECORD_NAME}"
 
-          # Render and apply the DNS zone group — this creates the A record in the
-          # private DNS zone pointing to the PE NIC IP. Must happen before the VNet
-          # link so the record exists when hub workloads and VPN clients query it.
+          # Private IP of the PE NIC in hub snet-pe — assigned dynamically at PE creation
+          PE_NIC_ID=$(az network private-endpoint show \
+            -g rg-eus2-hub-evergreen-01 \
+            -n pe-aks-spoke-01 \
+            --query "networkInterfaces[0].id" -o tsv)
+          PE_NIC_IP=$(az network nic show --ids "${PE_NIC_ID}" \
+            --query "ipConfigurations[0].privateIPAddress" -o tsv)
+          echo "PE NIC IP:       ${PE_NIC_IP}"
+
+          # ── DNS zone group ──────────────────────────────────────────────────
           sed "s|<dns-zone-name>|${DNS_ZONE}|g" \
             manifests/04-private-endpoint/dns-zonegroup.yaml \
             > /tmp/dns-zonegroup-rendered.yaml
@@ -188,8 +203,33 @@ jobs:
             --namespace default \
             --timeout=5m
 
-          # Render the VNet link template by substituting the GUID-based zone name,
-          # then let ASO reconcile the actual Azure resource.
+          # ── A record override ───────────────────────────────────────────────
+          # Overrides the AKS-created A record (which points to the spoke-internal
+          # NIC at 10.4.x.x) so the spoke FQDN resolves to the PE NIC in hub
+          # snet-pe (10.0.3.x) instead. This makes the spoke API server reachable
+          # from VPN clients and hub workloads without traversing AVNM peering.
+          sed \
+            -e "s|<dns-zone-name>|${DNS_ZONE}|g" \
+            -e "s|<a-record-name>|${A_RECORD_NAME}|g" \
+            -e "s|<pe-nic-ip>|${PE_NIC_IP}|g" \
+            manifests/04-private-endpoint/dns-a-record.yaml \
+            > /tmp/dns-a-record-rendered.yaml
+
+          kubectl apply -f /tmp/dns-a-record-rendered.yaml
+
+          echo "Waiting for PrivateDnsZonesARecord to become Ready (up to 3 min)..."
+          kubectl wait privatednszones.network.azure.com/spoke-api-server-pe-override \
+            --for=condition=Ready \
+            --namespace default \
+            --timeout=3m || \
+          kubectl wait privatednszonesakrecords.network.azure.com/spoke-api-server-pe-override \
+            --for=condition=Ready \
+            --namespace default \
+            --timeout=3m
+
+          # ── VNet link ───────────────────────────────────────────────────────
+          # Links the zone to the hub VNet so hub workloads and VPN clients can
+          # resolve it via the DNS Private Resolver.
           sed "s|<dns-zone-name>|${DNS_ZONE}|g" \
             manifests/04-private-endpoint/dns-vnetlink.yaml \
             > /tmp/dns-vnetlink-rendered.yaml
@@ -209,5 +249,11 @@ jobs:
           echo "DNS zone group:"
           kubectl get privateendpointsprivatednszonegroups.network.azure.com/pe-aks-spoke-01-dnsgroup -n default -o wide || true
           echo ""
+          echo "DNS A record override:"
+          kubectl get privatednszonesakrecords.network.azure.com/spoke-api-server-pe-override -n default -o wide || true
+          echo ""
           echo "DNS VNet link:"
           kubectl get privatednszonesvirtualnetworklinks.network.azure.com/link-hub-vnet-spoke -n default -o wide || true
+          echo ""
+          echo "Verify resolution (should return ${PE_NIC_IP}):"
+          echo "  nslookup ${SPOKE_FQDN} 10.0.3.196"
