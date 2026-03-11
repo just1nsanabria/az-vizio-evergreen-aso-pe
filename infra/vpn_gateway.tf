@@ -71,7 +71,7 @@ resource "azapi_update_resource" "vpn_gateway_dns" {
   type        = "Microsoft.Network/virtualNetworkGateways@2023-11-01"
   resource_id = azurerm_virtual_network_gateway.hub.id
 
-  body = jsonencode({
+  body = {
     properties = {
       vpnClientConfiguration = {
         customDnsServers = [
@@ -79,5 +79,5 @@ resource "azapi_update_resource" "vpn_gateway_dns" {
         ]
       }
     }
-  })
+  }
 }
