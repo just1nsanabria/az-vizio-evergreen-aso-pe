@@ -8,29 +8,30 @@ client can `kubectl` into the spoke cluster using its private FQDN.
 ## Architecture
 
 ```
-Hub VNet (snet-pe)
-  └── Private Endpoint NIC  ──►  Spoke AKS management NIC (10.4.x.x)
-        └── DNS Zone Group
-              └── Private DNS zone (MC_ resource group)
-                    *.privatelink.eastus2.azmk8s.io
-                    │
-                    ├── A record (AKS auto-created): aks-eus2-spoke-<id>  → 10.4.x.x  ← overridden ↓
-                    └── A record (ASO override):     aks-eus2-spoke-<id>  → 10.0.3.x  ✅ PE NIC in hub snet-pe
-                          │
-                          └── VNet link to hub VNet
-                                │
-                                DNS Private Resolver (10.0.3.196)
-                                │
-                                VPN client / hub workloads
+┌─ Spoke VNet ──────────────────────────────────────────────────────────────┐
+│  MC_ RG private DNS zone  (<guid>.privatelink.eastus2.azmk8s.io)          │
+│    A record: aks-eus2-spoke-<id>  →  10.4.x.x  (spoke snet-aks NIC)      │
+│    VNet link: spoke VNet  (auto-created by AKS — untouched)               │
+│                                                                            │
+│  Spoke pods → MC_ zone → 10.4.x.x  ✅ direct to API server               │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌─ Hub VNet ─────────────────────────────────────────────────────────────────┐
+│  Hub RG private DNS zone  (<guid>.privatelink.eastus2.azmk8s.io)  ← NEW   │
+│    A record: aks-eus2-spoke-<id>  →  10.0.3.x  (PE NIC in snet-pe)       │
+│    VNet link: hub VNet  → DNS Private Resolver sees this zone             │
+│                                                                            │
+│  VPN client / hub pod                                                      │
+│    → DNS Private Resolver (10.0.3.196)                                    │
+│    → hub zone  →  10.0.3.x                                                │
+│    → Private Endpoint (snet-pe)  →  Spoke AKS management plane  ✅        │
+└────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Without the A record override**, the zone's default A record points to `10.4.x.x`
-(the API server NIC inside the spoke VNet). Traffic reaches the spoke cluster directly
-via AVNM peering — the private endpoint is bypassed entirely.
-
-**With the A record override**, the FQDN resolves to `10.0.3.x` (the PE NIC in hub
-`snet-pe`). All spoke API server traffic flows through the private endpoint, staying
-fully inside the hub VNet with no dependency on AVNM peering being active.
+Two zones, same name, different RGs, different VNet links. Each VNet resolves
+the spoke FQDN to the IP that makes sense for its network path:
+- **Spoke VNet**: native API server NIC (`10.4.x.x`) — no PE hairpin
+- **Hub VNet / VPN**: PE NIC in `snet-pe` (`10.0.3.x`) — no AVNM peering needed
 
 ## Step 1 – Gather values
 

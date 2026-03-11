@@ -1,0 +1,32 @@
+# ASO PrivateDnsZone – hub-owned shadow zone for the spoke AKS API server.
+#
+# Creates a private DNS zone in the HUB resource group with the same name as
+# the AKS-auto-created zone in the spoke MC_ resource group. Because Azure
+# resolves private DNS zones per VNet-link, having two zones with the same name
+# in different resource groups is valid — each VNet only sees the zones linked
+# to it:
+#
+#   Spoke VNet → MC_ zone (auto-linked by AKS) → 10.4.x.x  (native NIC)  ✅
+#   Hub VNet   → Hub zone (this resource)      → 10.0.3.x  (PE NIC)      ✅
+#
+# This avoids overriding AKS-managed records in the MC_ zone, which would
+# break spoke-internal DNS resolution.
+#
+# <dns-zone-name> is substituted at runtime by the manifests workflow.
+# Format: <guid>.privatelink.eastus2.azmk8s.io
+#
+apiVersion: network.azure.com/v1api20180901
+kind: PrivateDnsZone
+metadata:
+  name: spoke-api-server-zone
+  namespace: default
+spec:
+  location: global
+
+  # Zone lives in the hub RG — completely independent of the MC_ zone.
+  owner:
+    armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01
+
+  # azureName must exactly match the MC_ zone name so the hub VNet resolver
+  # returns the correct FQDN for spoke kubectl traffic.
+  azureName: <dns-zone-name>
