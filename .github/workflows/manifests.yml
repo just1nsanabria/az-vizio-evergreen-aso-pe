@@ -165,11 +165,53 @@ jobs:
 
           kubectl apply -f manifests/03.1-spoke-cluster/custom-managed-cluster.yaml
 
-          echo "ManagedCluster submitted. Polling for Ready (up to 20 min)..."
-          kubectl wait managedclusters.containerservice.azure.com/aks-eus2-spoke-02 \
-            --for=condition=Ready \
-            --namespace default \
-            --timeout=20m
+          # AKS cluster provisioning routinely takes 15-25+ minutes.
+          # Poll with a 45-minute timeout; print ASO status every 5 minutes
+          # so the log shows progress rather than silence until failure.
+          echo "ManagedCluster submitted. Polling for Ready (up to 45 min)..."
+          DEADLINE=$(( $(date +%s) + 2700 ))   # 45 minutes
+          INTERVAL=300                          # print status every 5 minutes
+          LAST_PRINT=0
+          while true; do
+            NOW=$(date +%s)
+
+            # Print a heartbeat every 5 minutes
+            if (( NOW - LAST_PRINT >= INTERVAL )); then
+              echo "--- $(date -u '+%H:%M:%S UTC') ASO status ---"
+              kubectl get managedclusters.containerservice.azure.com/aks-eus2-spoke-02 \
+                -n default -o jsonpath='{range .status.conditions[*]}{.type}{"\t"}{.status}{"\t"}{.message}{"\n"}{end}' 2>/dev/null || true
+              LAST_PRINT=$NOW
+            fi
+
+            # Check if Ready condition is True
+            READY=$(kubectl get managedclusters.containerservice.azure.com/aks-eus2-spoke-02 \
+              -n default \
+              -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)
+            if [[ "$READY" == "True" ]]; then
+              echo "ManagedCluster is Ready."
+              break
+            fi
+
+            # Check if ASO has posted a terminal error so we fail fast
+            SEVERITY=$(kubectl get managedclusters.containerservice.azure.com/aks-eus2-spoke-02 \
+              -n default \
+              -o jsonpath='{.status.conditions[?(@.type=="Ready")].severity}' 2>/dev/null || true)
+            if [[ "$SEVERITY" == "Error" ]]; then
+              echo "ASO reported an error — printing full status before failing:"
+              kubectl get managedclusters.containerservice.azure.com/aks-eus2-spoke-02 \
+                -n default -o yaml | grep -A 40 'status:' || true
+              exit 1
+            fi
+
+            if (( NOW >= DEADLINE )); then
+              echo "Timed out after 45 minutes. Final ASO status:"
+              kubectl get managedclusters.containerservice.azure.com/aks-eus2-spoke-02 \
+                -n default -o yaml | grep -A 40 'status:' || true
+              exit 1
+            fi
+
+            sleep 30
+          done
 
           echo "Spoke cluster status:"
           kubectl get managedclusters.containerservice.azure.com/aks-eus2-spoke-02 \
