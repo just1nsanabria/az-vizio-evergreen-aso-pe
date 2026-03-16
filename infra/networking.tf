@@ -113,3 +113,13 @@ resource "azurerm_subnet" "spoke2_aks" {
   virtual_network_name = azurerm_virtual_network.spoke2.name
   address_prefixes     = [var.spoke2_aks_subnet_prefix, var.spoke2_aks_subnet_prefix_v6]
 }
+
+# BYO private DNS zone for spoke-02 AKS.
+# By pre-creating this zone and granting the UAMI (uami-aks-eus2-spoke-byodns)
+# Private DNS Zone Contributor on it, the spoke-02 AKS cluster can use
+# privateDNSZone = <this zone's resource ID> for a predictable, GUID-free FQDN:
+#   aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io
+resource "azurerm_private_dns_zone" "spoke2_aks" {
+  name                = "privatelink.eastus2.azmk8s.io"
+  resource_group_name = azurerm_resource_group.spoke2.name
+}

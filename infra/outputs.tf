@@ -65,6 +65,11 @@ output "spoke2_aks_subnet_id" {
   value       = azurerm_subnet.spoke2_aks.id
 }
 
+output "spoke2_aks_private_dns_zone_id" {
+  description = "Resource ID of the spoke-02 BYO private DNS zone – pass this to the ASO ManagedCluster privateDNSZone field and to the UAMI role assignment."
+  value       = azurerm_private_dns_zone.spoke2_aks.id
+}
+
 # ---------------------------------------------------------
 # AVNM
 # ---------------------------------------------------------
