@@ -70,6 +70,11 @@ output "spoke2_aks_private_dns_zone_id" {
   value       = azurerm_private_dns_zone.spoke2_aks.id
 }
 
+output "spoke2_aks_hub_shadow_zone_id" {
+  description = "Resource ID of the hub-facing shadow DNS zone for spoke-02 PE DNS (split-horizon). Pass this to the ASO PrivateEndpointsPrivateDnsZoneGroup manifest."
+  value       = azurerm_private_dns_zone.spoke2_aks_hub_shadow.id
+}
+
 # ---------------------------------------------------------
 # AVNM
 # ---------------------------------------------------------

@@ -1,35 +1,10 @@
-# PrivateDnsZonesVirtualNetworkLink — hub VNet → shadow zone (hub RG)
+# ARCHIVED — no longer applied by ASO.
 #
-# Links the hub-facing shadow zone (privatelink.eastus2.azmk8s.io in
-# rg-eus2-hub-evergreen-01, created by dns-zone.yaml) to the hub VNet.
+# The VNet link from the hub-facing shadow DNS zone to the hub VNet is now
+# created and managed by Terraform:
 #
-# This gives the DNS Private Resolver and hub pods / VPN clients a path
-# to resolve the spoke-02 API server FQDN to the PE NIC IP that is
-# auto-registered in the shadow zone by dns-zonegroup.yaml.
+#   resource "azurerm_private_dns_zone_virtual_network_link" "spoke2_aks_hub_shadow"  (infra/networking.tf)
 #
-# The BYO zone (same name, rg-eus2-spoke-evergreen-02) is Terraform-managed
-# and is NOT linked to the hub VNet — AKS auto-links it to the spoke VNet
-# only, so spoke pods resolve to the native NIC IP:
-#
-#   Spoke VNet → BYO zone (rg-eus2-spoke-evergreen-02) → spoke NIC IP  ✅
-#   Hub VNet   → shadow zone (rg-eus2-hub-evergreen-01) → PE NIC IP    ✅
-#
-apiVersion: network.azure.com/v1api20200601
-kind: PrivateDnsZonesVirtualNetworkLink
-metadata:
-  name: link-hub-vnet-spoke-02
-  namespace: default
-spec:
-  location: global
+# This file is kept for reference only. The workflow (04.1-private-endpoint
+# step in manifests.yml) no longer applies it.
 
-  # Owner is the SHADOW zone in hub RG — created by dns-zone.yaml.
-  # Do NOT point this at the BYO zone in rg-eus2-spoke-evergreen-02 or hub
-  # clients will resolve to the spoke NIC IP instead of the PE NIC IP.
-  owner:
-    armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01/providers/Microsoft.Network/privateDnsZones/privatelink.eastus2.azmk8s.io
-
-  registrationEnabled: false
-
-  virtualNetwork:
-    reference:
-      armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01/providers/Microsoft.Network/virtualNetworks/vnet-eus2-hub-evergreen-01

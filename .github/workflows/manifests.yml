@@ -340,14 +340,11 @@ jobs:
       - name: "04.1 – Deploy private endpoint for spoke-02 (BYO DNS)"
         if: github.event.inputs.step == '04.1-private-endpoint'
         run: |
-          # Split-horizon DNS using a shadow zone in the spoke RG:
-          #   BYO zone  (rg-eus2-hub-evergreen-01, linked to spoke VNet by AKS)
-          #     → aks-eus2-spoke-02  →  spoke NIC IP  (untouched, not linked to hub VNet)
-          #   Shadow zone (rg-eus2-spoke-evergreen-01, linked to hub VNet below)
-          #     → aks-eus2-spoke-02  →  PE NIC IP     (auto-registered by zone group)
-          #
-          # Zone names are statically known (privatelink.eastus2.azmk8s.io) —
-          # no GUID lookups required.
+          # Split-horizon DNS — both zones are Terraform-managed:
+          #   BYO zone  (rg-eus2-spoke-evergreen-02) → spoke VNet → spoke NIC IP
+          #   Shadow zone (rg-eus2-hub-evergreen-01)  → hub VNet  → PE NIC IP
+          # ASO only creates the private endpoint and the zone group that
+          # auto-registers the PE NIC IP into the shadow zone.
 
           # ── Private endpoint ───────────────────────────────────────────────
           kubectl apply -f manifests/04.1-private-endpoint/private-endpoint.yaml
@@ -358,33 +355,10 @@ jobs:
             --namespace default \
             --timeout=10m
 
-          # ── Hub-facing shadow zone ─────────────────────────────────────────
-          # Creates privatelink.eastus2.azmk8s.io in rg-eus2-spoke-evergreen-01.
-          # Separate RG from the BYO zone (hub RG) to enable split-horizon DNS.
-          kubectl apply -f manifests/04.1-private-endpoint/dns-zone.yaml
-
-          echo "Waiting for shadow PrivateDnsZone to become Ready (up to 5 min)..."
-          kubectl wait privatednszones.network.azure.com/spoke-02-hub-shadow-zone \
-            --for=condition=Ready \
-            --namespace default \
-            --timeout=5m
-
-          # ── VNet link — shadow zone → hub VNet ────────────────────────────
-          # Links the shadow zone (spoke RG) to the hub VNet so the DNS Private
-          # Resolver and hub pods / VPN clients resolve to the PE NIC IP.
-          # The BYO zone (hub RG) is NOT linked to the hub VNet.
-          kubectl apply -f manifests/04.1-private-endpoint/dns-vnetlink.yaml
-
-          echo "Waiting for PrivateDnsZonesVirtualNetworkLink to become Ready (up to 5 min)..."
-          kubectl wait privatednszonesvirtualnetworklinks.network.azure.com/link-hub-vnet-spoke-02 \
-            --for=condition=Ready \
-            --namespace default \
-            --timeout=5m
-
           # ── DNS zone group ─────────────────────────────────────────────────
-          # Binds pe-aks-spoke-02 to the shadow zone. Azure auto-registers the
-          # PE NIC IP as: aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io
-          # The BYO zone AKS-managed record is not touched.
+          # Binds pe-aks-spoke-02 to the Terraform-managed shadow zone in
+          # rg-eus2-hub-evergreen-01. Azure auto-registers the PE NIC IP as:
+          #   aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io
           kubectl apply -f manifests/04.1-private-endpoint/dns-zonegroup.yaml
 
           echo "Waiting for PrivateDnsZoneGroup to become Ready (up to 5 min)..."
@@ -404,8 +378,6 @@ jobs:
           echo ""
           echo "=== Deployed resources ==="
           kubectl get privateendpoints.network.azure.com/pe-aks-spoke-02 -n default -o wide || true
-          kubectl get privatednszones.network.azure.com/spoke-02-hub-shadow-zone -n default -o wide || true
-          kubectl get privatednszonesvirtualnetworklinks.network.azure.com/link-hub-vnet-spoke-02 -n default -o wide || true
           kubectl get privateendpointsprivatednszonegroups.network.azure.com/pe-aks-spoke-02-dnsgroup -n default -o wide || true
           echo ""
           echo "=== Verify resolution ==="

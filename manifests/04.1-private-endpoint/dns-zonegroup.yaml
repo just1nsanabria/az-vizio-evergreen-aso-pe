@@ -1,17 +1,18 @@
 # DNS Zone Group for the spoke-02 AKS Private Endpoint.
 #
-# Binds pe-aks-spoke-02 to the hub-facing SHADOW zone
-# (privatelink.eastus2.azmk8s.io in rg-eus2-spoke-evergreen-01, created by
-# dns-zone.yaml). Azure automatically registers the PE NIC private IP as an
-# A record in that shadow zone:
+# Binds pe-aks-spoke-02 to the Terraform-managed hub-facing shadow zone
+# (privatelink.eastus2.azmk8s.io in rg-eus2-hub-evergreen-01). Azure
+# automatically registers the PE NIC private IP as an A record in that zone:
 #
 #   aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io  →  <PE NIC IP in snet-pe>
 #
-# WHY THE SHADOW ZONE, NOT THE BYO ZONE:
-#   The BYO zone (same name, rg-eus2-spoke-evergreen-02) is Terraform-managed
-#   and holds an AKS-managed A record pointing to the spoke private NIC IP.
-#   Azure will not let the PE zone group overwrite an AKS-managed record, so a
-#   second zone in a different RG is required for PE-side DNS (split-horizon).
+# Split-horizon layout (both zones managed by Terraform, PE registration by ASO):
+#   BYO zone  (rg-eus2-spoke-evergreen-02) → spoke VNet → spoke NIC IP  (AKS-managed)
+#   Shadow zone (rg-eus2-hub-evergreen-01)  → hub VNet  → PE NIC IP     (registered here)
+#
+# The shadow zone and its hub VNet link are created by Terraform:
+#   azurerm_private_dns_zone.spoke2_aks_hub_shadow
+#   azurerm_private_dns_zone_virtual_network_link.spoke2_aks_hub_shadow
 #
 apiVersion: network.azure.com/v1api20220701
 kind: PrivateEndpointsPrivateDnsZoneGroup
@@ -26,7 +27,6 @@ spec:
   privateDnsZoneConfigs:
     - name: aks-dns-config
       privateDnsZoneReference:
-        # Shadow zone in hub RG — created by dns-zone.yaml in this folder.
-        # The BYO zone (Terraform-managed) is in rg-eus2-spoke-evergreen-02;
-        # this shadow zone in the hub RG satisfies the split-horizon requirement.
+        # Terraform-managed shadow zone in hub RG.
+        # terraform -chdir=../../infra output spoke2_aks_hub_shadow_zone_id
         armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01/providers/Microsoft.Network/privateDnsZones/privatelink.eastus2.azmk8s.io

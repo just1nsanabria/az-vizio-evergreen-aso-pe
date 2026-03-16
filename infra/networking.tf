@@ -123,3 +123,29 @@ resource "azurerm_private_dns_zone" "spoke2_aks" {
   name                = "privatelink.eastus2.azmk8s.io"
   resource_group_name = azurerm_resource_group.spoke2.name
 }
+
+# Hub-facing shadow DNS zone (split-horizon DNS for spoke-02 private endpoint).
+#
+# Split-horizon layout:
+#   BYO zone  (rg-eus2-spoke-evergreen-02) → AKS auto-links to spoke VNet
+#     aks-eus2-spoke-02 → spoke private NIC IP  (untouched by PE)
+#   Shadow zone (rg-eus2-hub-evergreen-01)  → linked to hub VNet (below)
+#     aks-eus2-spoke-02 → PE NIC IP in snet-pe  (auto-registered by ASO zone group)
+#
+# Two zones, same name, different RGs, different VNet links. Each VNet only
+# sees the A record relevant to its own network path.
+resource "azurerm_private_dns_zone" "spoke2_aks_hub_shadow" {
+  name                = "privatelink.eastus2.azmk8s.io"
+  resource_group_name = azurerm_resource_group.hub.name
+}
+
+# Link the shadow zone to the hub VNet so the DNS Private Resolver, hub pods,
+# and VPN clients resolve aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io to
+# the PE NIC IP. The BYO zone is NOT linked here.
+resource "azurerm_private_dns_zone_virtual_network_link" "spoke2_aks_hub_shadow" {
+  name                  = "link-hub-vnet-spoke2-shadow"
+  resource_group_name   = azurerm_resource_group.hub.name
+  private_dns_zone_name = azurerm_private_dns_zone.spoke2_aks_hub_shadow.name
+  virtual_network_id    = azurerm_virtual_network.hub.id
+  registration_enabled  = false
+}
