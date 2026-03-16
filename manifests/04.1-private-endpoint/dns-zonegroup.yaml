@@ -1,17 +1,17 @@
 # DNS Zone Group for the spoke-02 AKS Private Endpoint.
 #
-# Links the BYO private DNS zone (privatelink.eastus2.azmk8s.io in
-# rg-eus2-hub-evergreen-01) to the pe-aks-spoke-02 private endpoint.
-# Azure automatically registers the PE NIC private IP as an A record in
-# the zone, so the spoke-02 API server FQDN resolves to the PE NIC IP
-# (10.0.3.x) from the hub VNet and over VPN.
+# Binds pe-aks-spoke-02 to the hub-facing SHADOW zone
+# (privatelink.eastus2.azmk8s.io in rg-eus2-spoke-evergreen-01, created by
+# dns-zone.yaml). Azure automatically registers the PE NIC private IP as an
+# A record in that shadow zone:
 #
-# Because the DNS zone already exists (created as part of the BYO DNS
-# setup in 03.1-spoke-cluster), no dns-zone.yaml or dns-a-record.yaml
-# are needed here — this zone group handles all PE-side DNS registration.
-#
-# A record that will be registered by this zone group:
 #   aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io  →  <PE NIC IP in snet-pe>
+#
+# WHY THE SHADOW ZONE, NOT THE BYO ZONE:
+#   The BYO zone (same name, rg-eus2-hub-evergreen-01) holds an AKS-managed
+#   A record pointing to the spoke private NIC IP.  Azure will not let the PE
+#   zone group overwrite an AKS-managed record, so a second zone in a
+#   different RG is required for PE-side DNS (split-horizon).
 #
 apiVersion: network.azure.com/v1api20220701
 kind: PrivateEndpointsPrivateDnsZoneGroup
@@ -26,7 +26,7 @@ spec:
   privateDnsZoneConfigs:
     - name: aks-dns-config
       privateDnsZoneReference:
-        # BYO zone — pre-created as part of 03.1-spoke-cluster prerequisites.
-        # Zone name is static (no GUID prefix) because privateDNSZone was set
-        # explicitly on the ManagedCluster spec.
-        armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01/providers/Microsoft.Network/privateDnsZones/privatelink.eastus2.azmk8s.io
+        # Shadow zone in spoke RG — created by dns-zone.yaml in this folder.
+        # Zone name is static (privatelink.eastus2.azmk8s.io, no GUID prefix)
+        # because the spoke-02 cluster uses BYO DNS.
+        armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-01/providers/Microsoft.Network/privateDnsZones/privatelink.eastus2.azmk8s.io

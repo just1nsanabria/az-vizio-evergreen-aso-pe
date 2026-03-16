@@ -1,18 +1,18 @@
-# PrivateDnsZonesVirtualNetworkLink — hub VNet → BYO zone
+# PrivateDnsZonesVirtualNetworkLink — hub VNet → shadow zone (spoke RG)
 #
-# Links the pre-existing BYO private DNS zone (privatelink.eastus2.azmk8s.io
-# in rg-eus2-hub-evergreen-01) to the hub VNet. This allows the DNS Private
-# Resolver and any hub pod or VPN client to resolve the spoke-02 API server
-# FQDN to the PE NIC IP registered by dns-zonegroup.yaml.
+# Links the hub-facing shadow zone (privatelink.eastus2.azmk8s.io in
+# rg-eus2-spoke-evergreen-01, created by dns-zone.yaml) to the hub VNet.
 #
-# NOTE: This manifest is only needed once per hub VNet. If the hub VNet is
-# already linked to the BYO zone from a previous spoke deployment, skip this
-# file to avoid a duplicate link error. Verify first:
+# This gives the DNS Private Resolver and hub pods / VPN clients a path
+# to resolve the spoke-02 API server FQDN to the PE NIC IP that is
+# auto-registered in the shadow zone by dns-zonegroup.yaml.
 #
-#   az network private-dns link vnet list \
-#     -g rg-eus2-hub-evergreen-01 \
-#     -z privatelink.eastus2.azmk8s.io \
-#     --query "[].name" -o tsv
+# The BYO zone (same name, rg-eus2-hub-evergreen-01) is NOT linked to the
+# hub VNet — it remains linked only to the spoke VNet (by AKS), so spoke
+# pods continue to resolve to the native NIC IP:
+#
+#   Spoke VNet → BYO zone  (hub RG)   → spoke NIC IP  ✅
+#   Hub VNet   → shadow zone (spoke RG) → PE NIC IP    ✅
 #
 apiVersion: network.azure.com/v1api20200601
 kind: PrivateDnsZonesVirtualNetworkLink
@@ -22,9 +22,11 @@ metadata:
 spec:
   location: global
 
-  # Owner is the BYO zone in hub RG — pre-created in 03.1-spoke-cluster
+  # Owner is the SHADOW zone in spoke RG — created by dns-zone.yaml.
+  # Do NOT point this at the BYO zone in hub RG or hub clients will
+  # resolve to the spoke NIC IP instead of the PE NIC IP.
   owner:
-    armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01/providers/Microsoft.Network/privateDnsZones/privatelink.eastus2.azmk8s.io
+    armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-01/providers/Microsoft.Network/privateDnsZones/privatelink.eastus2.azmk8s.io
 
   registrationEnabled: false
 
