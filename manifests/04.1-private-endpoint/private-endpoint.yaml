@@ -6,11 +6,11 @@
 # name and A record hostname are known before provisioning — no GUID lookups
 # needed post-deploy.
 #
-# All values are statically known from the BYO DNS setup in 03.1-spoke-cluster:
+# All values are statically known from the Terraform-created resources:
 #   Subscription:  f9ea6521-6599-4549-a5f1-5986548330f8
 #   Hub RG:        rg-eus2-hub-evergreen-01
 #   Hub PE subnet: snet-pe in vnet-eus2-hub-evergreen-01
-#   Spoke cluster: aks-eus2-spoke-02 in rg-eus2-spoke-evergreen-01
+#   Spoke cluster: aks-eus2-spoke-02 in rg-eus2-spoke-evergreen-02
 #
 apiVersion: network.azure.com/v1api20220701
 kind: PrivateEndpoint
@@ -31,6 +31,6 @@ spec:
   privateLinkServiceConnections:
     - name: aksPrivateLink
       privateLinkServiceReference:
-        armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-01/providers/Microsoft.ContainerService/managedClusters/aks-eus2-spoke-02
+        armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-02/providers/Microsoft.ContainerService/managedClusters/aks-eus2-spoke-02
       groupIds:
         - management

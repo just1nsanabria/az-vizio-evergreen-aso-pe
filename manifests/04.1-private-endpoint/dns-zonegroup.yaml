@@ -8,10 +8,10 @@
 #   aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io  →  <PE NIC IP in snet-pe>
 #
 # WHY THE SHADOW ZONE, NOT THE BYO ZONE:
-#   The BYO zone (same name, rg-eus2-hub-evergreen-01) holds an AKS-managed
-#   A record pointing to the spoke private NIC IP.  Azure will not let the PE
-#   zone group overwrite an AKS-managed record, so a second zone in a
-#   different RG is required for PE-side DNS (split-horizon).
+#   The BYO zone (same name, rg-eus2-spoke-evergreen-02) is Terraform-managed
+#   and holds an AKS-managed A record pointing to the spoke private NIC IP.
+#   Azure will not let the PE zone group overwrite an AKS-managed record, so a
+#   second zone in a different RG is required for PE-side DNS (split-horizon).
 #
 apiVersion: network.azure.com/v1api20220701
 kind: PrivateEndpointsPrivateDnsZoneGroup
@@ -26,7 +26,7 @@ spec:
   privateDnsZoneConfigs:
     - name: aks-dns-config
       privateDnsZoneReference:
-        # Shadow zone in spoke RG — created by dns-zone.yaml in this folder.
-        # Zone name is static (privatelink.eastus2.azmk8s.io, no GUID prefix)
-        # because the spoke-02 cluster uses BYO DNS.
-        armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-01/providers/Microsoft.Network/privateDnsZones/privatelink.eastus2.azmk8s.io
+        # Shadow zone in hub RG — created by dns-zone.yaml in this folder.
+        # The BYO zone (Terraform-managed) is in rg-eus2-spoke-evergreen-02;
+        # this shadow zone in the hub RG satisfies the split-horizon requirement.
+        armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01/providers/Microsoft.Network/privateDnsZones/privatelink.eastus2.azmk8s.io

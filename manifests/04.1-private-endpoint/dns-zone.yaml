@@ -2,27 +2,18 @@
 #
 # WHY THIS IS NEEDED — split-horizon DNS:
 #
-#   The BYO zone (privatelink.eastus2.azmk8s.io in rg-eus2-hub-evergreen-01)
-#   was created for the spoke cluster and holds an AKS-managed A record:
+#   Terraform creates the BYO zone (privatelink.eastus2.azmk8s.io) in
+#   rg-eus2-spoke-evergreen-02. AKS uses this as its privateDNSZone, writes
+#   an A record pointing to the spoke NIC IP, and auto-links it to the spoke
+#   VNet — correct and untouched.
 #
-#     aks-eus2-spoke-02  →  <spoke private NIC IP>
+#   The PE DNS zone group CANNOT write into that same zone (AKS-managed record
+#   is protected). And linking it to the hub VNet would cause hub clients to
+#   resolve to the spoke NIC IP (wrong — they need PE NIC IP).
 #
-#   AKS auto-links that zone to the spoke VNet, so spoke pods always resolve
-#   the API server to the native NIC IP — correct and untouched.
-#
-#   The PE DNS zone group CANNOT overwrite or add to that AKS-managed record.
-#   Even if it could, linking the same zone to the hub VNet would cause hub
-#   clients to also resolve to the spoke NIC IP (wrong — they need PE NIC IP).
-#
-#   The solution mirrors the original 04-private-endpoint shadow-zone pattern:
-#     - BYO zone  (hub RG)   → linked to spoke VNet → spoke NIC IP  ✅
-#     - Shadow zone (spoke RG) → linked to hub VNet  → PE NIC IP    ✅
-#
-#   Two zones, same name, different RGs, different VNet links.  Each VNet only
-#   sees the A record for its own network path.
-#
-#   With BYO DNS the zone name is now static (privatelink.eastus2.azmk8s.io)
-#   instead of a GUID prefix, so no runtime lookups are required.
+#   Solution: a second zone with the same name in a DIFFERENT RG (hub RG):
+#     - BYO zone  (rg-eus2-spoke-evergreen-02) → linked to spoke VNet by AKS → spoke NIC IP  ✅
+#     - Shadow zone (rg-eus2-hub-evergreen-01)  → linked to hub VNet below    → PE NIC IP    ✅
 #
 apiVersion: network.azure.com/v1api20180901
 kind: PrivateDnsZone
@@ -32,11 +23,10 @@ metadata:
 spec:
   location: global
 
-  # Shadow zone lives in the SPOKE RG so it doesn't collide with the BYO zone
-  # that already exists in the hub RG under the same name.
+  # Shadow zone lives in the HUB RG — different from the Terraform-managed BYO
+  # zone in rg-eus2-spoke-evergreen-02, which satisfies the split-horizon
+  # requirement (Azure resolves per VNet-link; two zones, same name, different RGs).
   owner:
-    armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-01
+    armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01
 
-  # Must be the same name as the BYO zone so hub VNet DNS resolution uses
-  # this zone when looking up *.privatelink.eastus2.azmk8s.io.
   azureName: privatelink.eastus2.azmk8s.io

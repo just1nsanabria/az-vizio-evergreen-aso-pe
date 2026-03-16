@@ -22,16 +22,12 @@
 #             --resource-group rg-eus2-evergreen-mgmt \
 #             --location eastus2
 #
-#      b) Create the BYO private DNS zone (once; shared across spoke clusters):
-#           az network private-dns zone create \
-#             --resource-group rg-eus2-evergreen-mgmt \
-#             --name privatelink.eastus2.azmk8s.io
+#      b) Create the BYO private DNS zone — already created by Terraform:
+#           terraform -chdir=../../infra output spoke2_aks_private_dns_zone_id
+#           # Zone: privatelink.eastus2.azmk8s.io in rg-eus2-spoke-evergreen-02
 #
 #      c) Apply Private DNS Zone Contributor role to the UAMI on the zone:
-#           ZONE_ID=$(az network private-dns zone show \
-#             -g rg-eus2-evergreen-mgmt \
-#             -n privatelink.eastus2.azmk8s.io \
-#             --query id -o tsv)
+#           ZONE_ID=$(terraform -chdir=../../infra output -raw spoke2_aks_private_dns_zone_id)
 #           UAMI_PRINCIPAL=$(az identity show \
 #             -g rg-eus2-evergreen-mgmt \
 #             -n uami-aks-eus2-spoke-byodns \
@@ -42,11 +38,8 @@
 #             --role "Private DNS Zone Contributor" \
 #             --scope "$ZONE_ID"
 #
-#      d) Apply Network Contributor role to the UAMI on the spoke VNet:
-#           VNET_ID=$(az network vnet show \
-#             -g rg-eus2-spoke-evergreen-01 \
-#             -n vnet-eus2-spoke-evergreen-01 \
-#             --query id -o tsv)
+#      d) Apply Network Contributor role to the UAMI on the spoke-02 VNet:
+#           VNET_ID=$(terraform -chdir=../../infra output -raw spoke2_vnet_id)
 #           az role assignment create \
 #             --assignee-object-id "$UAMI_PRINCIPAL" \
 #             --assignee-principal-type ServicePrincipal \
@@ -70,8 +63,8 @@ spec:
   location: eastus2
 
   owner:
-    # Output: terraform -chdir=../../infra output spoke_rg_id
-    armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-01
+    # Output: terraform -chdir=../../infra output spoke2_rg_id
+    armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-02
 
 
   dnsPrefix: aks-eus2-spoke-02
@@ -79,7 +72,7 @@ spec:
   # ── Private cluster ─────────────────────────────────────────────────────────
   apiServerAccessProfile:
     enablePrivateCluster: true
-    privateDNSZone: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01/providers/Microsoft.Network/privateDnsZones/privatelink.eastus2.azmk8s.io
+    privateDNSZone: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-02/providers/Microsoft.Network/privateDnsZones/privatelink.eastus2.azmk8s.io
 
   # ── Identity ────────────────────────────────────────────────────────────────
   # BYO DNS requires UserAssigned — SystemAssigned cannot be pre-granted roles
@@ -101,8 +94,8 @@ spec:
       # Dual-stack node pool
       osDiskSizeGB: 128
       vnetSubnetReference:
-        # Output: terraform -chdir=../../infra output spoke_aks_subnet_id
-        armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-01/providers/Microsoft.Network/virtualNetworks/vnet-eus2-spoke-evergreen-01/subnets/snet-aks
+        # Output: terraform -chdir=../../infra output spoke2_aks_subnet_id
+        armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-02/providers/Microsoft.Network/virtualNetworks/vnet-eus2-spoke-evergreen-02/subnets/snet-aks
       nodeTaints: []
 
   # ── Networking ───────────────────────────────────────────────────────────────
