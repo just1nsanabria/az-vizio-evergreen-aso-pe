@@ -67,7 +67,15 @@ spec:
     armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-02
 
 
-  dnsPrefix: aks-eus2-spoke-02
+  # fqdnSubdomain sets the EXACT hostname in the BYO private DNS zone with no
+  # random suffix — the private FQDN will be:
+  #   aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io
+  #
+  # This is mutually exclusive with dnsPrefix. dnsPrefix always appends a
+  # random string (e.g. aks-eus2-spoke-02-k3ct0q08) and is intended for
+  # public clusters or private clusters using system-managed DNS.
+  # fqdnSubdomain requires privateDNSZone to be set to a BYO zone ARM ID.
+  fqdnSubdomain: aks-eus2-spoke-02
 
   # ── Private cluster ─────────────────────────────────────────────────────────
   apiServerAccessProfile:
