@@ -213,11 +213,13 @@ variable "spoke2_rg_name" {
 variable "spoke2_aks_uami_name" {
   description = "Name of the user-assigned managed identity used by the spoke-02 AKS control plane (BYO DNS requires UAMI)."
   type        = string
+  default     = "uami-aks-eus2-spoke-byodns"
 }
 
 variable "spoke2_aks_uami_rg" {
   description = "Resource group containing the spoke-02 AKS UAMI."
   type        = string
+  default     = "rg-eus2-evergreen-mgmt"
 }
 
 variable "spoke2_vnet_name" {
