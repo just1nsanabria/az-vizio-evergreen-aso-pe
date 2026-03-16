@@ -155,7 +155,7 @@ jobs:
 
       # ── 03.1  Spoke cluster (BYO DNS) ───────────────────────────────────
       - name: "03.1 – Deploy spoke-02 AKS via ASO (BYO DNS)"
-        if: github.event.inputs.step == '03.1-spoke-cluster'
+        if: github.event.inputs.step == '03.1-spoke-cluster-byodns'
         run: |
           # Verify ASO is healthy before submitting the cluster manifest
           kubectl -n azureserviceoperator-system wait \
@@ -338,7 +338,7 @@ jobs:
 
       # ── 04.1  Private endpoint + DNS (BYO DNS — static values) ────────────
       - name: "04.1 – Deploy private endpoint for spoke-02 (BYO DNS)"
-        if: github.event.inputs.step == '04.1-private-endpoint'
+        if: github.event.inputs.step == '04.1-private-endpoint-byodns'
         run: |
           # Split-horizon DNS — both zones are Terraform-managed:
           #   BYO zone  (rg-eus2-spoke-evergreen-02) → spoke VNet → spoke NIC IP
