@@ -18,7 +18,9 @@ on:
           - 01-cert-manager
           - 02-aso
           - 03-spoke-cluster
+          - 03.1-spoke-cluster
           - 04-private-endpoint
+          - 04.1-private-endpoint
 
 concurrency:
   group: manifests-${{ github.ref }}
@@ -151,6 +153,28 @@ jobs:
           kubectl get managedclusters.containerservice.azure.com/aks-eus2-spoke-01 \
             -n default -o wide || true
 
+      # ── 03.1  Spoke cluster (BYO DNS) ───────────────────────────────────
+      - name: "03.1 – Deploy spoke-02 AKS via ASO (BYO DNS)"
+        if: github.event.inputs.step == '03.1-spoke-cluster'
+        run: |
+          # Verify ASO is healthy before submitting the cluster manifest
+          kubectl -n azureserviceoperator-system wait \
+            --for=condition=Ready pod \
+            --selector=app.kubernetes.io/name=azure-service-operator \
+            --timeout=120s
+
+          kubectl apply -f manifests/03.1-spoke-cluster/custom-managed-cluster.yaml
+
+          echo "ManagedCluster submitted. Polling for Ready (up to 20 min)..."
+          kubectl wait managedclusters.containerservice.azure.com/aks-eus2-spoke-02 \
+            --for=condition=Ready \
+            --namespace default \
+            --timeout=20m
+
+          echo "Spoke cluster status:"
+          kubectl get managedclusters.containerservice.azure.com/aks-eus2-spoke-02 \
+            -n default -o wide || true
+
       # ── 04  Private endpoint + DNS ─────────────────────────────────────────
       - name: "04 – Deploy private endpoint"
         if: github.event.inputs.step == '04-private-endpoint'
@@ -269,3 +293,60 @@ jobs:
           echo "    nslookup ${SPOKE_FQDN} 10.0.3.196"
           echo "  Spoke VNet (should return 10.4.x.x — unchanged):"
           echo "    nslookup ${SPOKE_FQDN} 168.63.129.16  # from spoke pod"
+
+      # ── 04.1  Private endpoint + DNS (BYO DNS — static values) ────────────
+      - name: "04.1 – Deploy private endpoint for spoke-02 (BYO DNS)"
+        if: github.event.inputs.step == '04.1-private-endpoint'
+        run: |
+          # All DNS values are statically known because spoke-02 uses a BYO
+          # private DNS zone (privatelink.eastus2.azmk8s.io). No GUID lookups.
+
+          kubectl apply -f manifests/04.1-private-endpoint/private-endpoint.yaml
+
+          echo "Waiting for PrivateEndpoint to become Ready (up to 10 min)..."
+          kubectl wait privateendpoints.network.azure.com/pe-aks-spoke-02 \
+            --for=condition=Ready \
+            --namespace default \
+            --timeout=10m
+
+          # ── VNet link — BYO zone → hub VNet ───────────────────────────────
+          # Only needed once per hub VNet. Skip if already linked (e.g. after
+          # a rerun). ASO will reconcile idempotently but log a note either way.
+          kubectl apply -f manifests/04.1-private-endpoint/dns-vnetlink.yaml
+
+          echo "Waiting for PrivateDnsZonesVirtualNetworkLink to become Ready (up to 5 min)..."
+          kubectl wait privatednszonesvirtualnetworklinks.network.azure.com/link-hub-vnet-spoke-02 \
+            --for=condition=Ready \
+            --namespace default \
+            --timeout=5m
+
+          # ── DNS zone group ─────────────────────────────────────────────────
+          # Binds pe-aks-spoke-02 to the BYO zone. Azure registers the PE NIC
+          # IP as an A record: aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io
+          kubectl apply -f manifests/04.1-private-endpoint/dns-zonegroup.yaml
+
+          echo "Waiting for PrivateDnsZoneGroup to become Ready (up to 5 min)..."
+          kubectl wait privateendpointsprivatednszonegroups.network.azure.com/pe-aks-spoke-02-dnsgroup \
+            --for=condition=Ready \
+            --namespace default \
+            --timeout=5m
+
+          # Retrieve the PE NIC IP for the verification hint below
+          PE_NIC_ID=$(az network private-endpoint show \
+            -g rg-eus2-hub-evergreen-01 \
+            -n pe-aks-spoke-02 \
+            --query "networkInterfaces[0].id" -o tsv)
+          PE_NIC_IP=$(az network nic show --ids "${PE_NIC_ID}" \
+            --query "ipConfigurations[0].privateIPAddress" -o tsv)
+
+          echo ""
+          echo "=== Deployed resources ==="
+          kubectl get privateendpoints.network.azure.com/pe-aks-spoke-02 -n default -o wide || true
+          kubectl get privateendpointsprivatednszonegroups.network.azure.com/pe-aks-spoke-02-dnsgroup -n default -o wide || true
+          kubectl get privatednszonesvirtualnetworklinks.network.azure.com/link-hub-vnet-spoke-02 -n default -o wide || true
+          echo ""
+          echo "=== Verify resolution ==="
+          echo "  Hub VNet / VPN (should return ${PE_NIC_IP}):"
+          echo "    nslookup aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io 10.0.3.196"
+          echo "  Spoke VNet (should return spoke NIC IP — unchanged):"
+          echo "    nslookup aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io 168.63.129.16  # from spoke pod"
