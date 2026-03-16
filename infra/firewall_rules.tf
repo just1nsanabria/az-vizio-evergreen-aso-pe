@@ -16,6 +16,7 @@ resource "azurerm_firewall_application_rule_collection" "aks_required" {
     source_addresses = [
       var.hub_vnet_address_space[0],
       var.spoke_vnet_address_space[0],
+      var.spoke2_vnet_address_space[0],
     ]
     fqdn_tags = ["AzureKubernetesService"]
   }
@@ -34,6 +35,7 @@ resource "azurerm_firewall_application_rule_collection" "container_registries" {
     source_addresses = [
       var.hub_vnet_address_space[0],
       var.spoke_vnet_address_space[0],
+      var.spoke2_vnet_address_space[0],
     ]
     target_fqdns = ["quay.io", "*.quay.io"]
     protocol {
@@ -47,6 +49,7 @@ resource "azurerm_firewall_application_rule_collection" "container_registries" {
     source_addresses = [
       var.hub_vnet_address_space[0],
       var.spoke_vnet_address_space[0],
+      var.spoke2_vnet_address_space[0],
     ]
     target_fqdns = ["mcr.microsoft.com", "*.mcr.microsoft.com"]
     protocol {
@@ -60,6 +63,7 @@ resource "azurerm_firewall_application_rule_collection" "container_registries" {
     source_addresses = [
       var.hub_vnet_address_space[0],
       var.spoke_vnet_address_space[0],
+      var.spoke2_vnet_address_space[0],
     ]
     target_fqdns = ["registry.k8s.io", "*.registry.k8s.io"]
     protocol {
@@ -73,6 +77,7 @@ resource "azurerm_firewall_application_rule_collection" "container_registries" {
     source_addresses = [
       var.hub_vnet_address_space[0],
       var.spoke_vnet_address_space[0],
+      var.spoke2_vnet_address_space[0],
     ]
     target_fqdns = ["ghcr.io", "*.ghcr.io"]
     protocol {
@@ -95,6 +100,7 @@ resource "azurerm_firewall_application_rule_collection" "azure_services" {
     source_addresses = [
       var.hub_vnet_address_space[0],
       var.spoke_vnet_address_space[0],
+      var.spoke2_vnet_address_space[0],
     ]
     target_fqdns = [
       "login.microsoftonline.com",
@@ -112,6 +118,7 @@ resource "azurerm_firewall_application_rule_collection" "azure_services" {
     source_addresses = [
       var.hub_vnet_address_space[0],
       var.spoke_vnet_address_space[0],
+      var.spoke2_vnet_address_space[0],
     ]
     target_fqdns = [
       "management.azure.com",
@@ -280,6 +287,7 @@ resource "azurerm_firewall_network_rule_collection" "ntp" {
     source_addresses = [
       var.hub_vnet_address_space[0],
       var.spoke_vnet_address_space[0],
+      var.spoke2_vnet_address_space[0],
     ]
     destination_ports     = ["123"]
     destination_addresses = ["*"]
