@@ -1,0 +1,31 @@
+# ASO A record in the hub management DNS zone for spoke-02.
+#
+# Points aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io to the PE NIC
+# private IP in hub snet-pe. This is necessary because BYO-DNS AKS clusters
+# do not populate customDnsConfigs on the private endpoint, so the standard
+# PE zone-group auto-registration mechanism does not work.
+#
+# The hub mgmt zone (rg-eus2-hub-evergreen-01) and its hub VNet link are
+# created by Terraform:
+#   azurerm_private_dns_zone.spoke2_aks_hub
+#   azurerm_private_dns_zone_virtual_network_link.spoke2_aks_hub
+#
+# The PE NIC IP is substituted at deploy time by the manifests workflow:
+#   <pe-nic-ip>  – private IP of the pe-aks-spoke-02 NIC in hub snet-pe
+#
+apiVersion: network.azure.com/v1api20200601
+kind: PrivateDnsZonesARecord
+metadata:
+  name: spoke-02-api-server-a-record
+  namespace: default
+spec:
+  azureName: aks-eus2-spoke-02
+
+  # Owner is the hub mgmt zone (Terraform-managed, static name — no GUID).
+  owner:
+    armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01/providers/Microsoft.Network/privateDnsZones/privatelink.eastus2.azmk8s.io
+
+  ttl: 10
+
+  aRecords:
+    - ipv4Address: <pe-nic-ip>

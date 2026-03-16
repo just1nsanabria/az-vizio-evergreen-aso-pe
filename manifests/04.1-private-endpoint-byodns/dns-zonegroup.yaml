@@ -1,6 +1,8 @@
-# DNS Zone Group for the spoke-02 AKS Private Endpoint.
+# ARCHIVED — not applied. PE zone-group auto-registration does not work for
+# BYO-DNS AKS clusters because customDnsConfigs is always empty on the PE.
+# The A record is written directly by ASO via dns-a-record.yaml instead.
 #
-# Binds pe-aks-spoke-02 to the Terraform-managed hub management DNS zone
+# Original intent: Binds pe-aks-spoke-02 to the Terraform-managed hub management DNS zone
 # (privatelink.eastus2.azmk8s.io in rg-eus2-hub-evergreen-01). Azure
 # automatically registers the PE NIC private IP as an A record in that zone:
 #

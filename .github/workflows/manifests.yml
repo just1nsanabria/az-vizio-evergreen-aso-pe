@@ -340,11 +340,13 @@ jobs:
       - name: "04.1 – Deploy private endpoint for spoke-02 (BYO DNS)"
         if: github.event.inputs.step == '04.1-private-endpoint-byodns'
         run: |
-          # Split-horizon DNS — both zones are Terraform-managed:
-          #   BYO zone  (rg-eus2-spoke-evergreen-02) → spoke VNet → spoke NIC IP
-          #   Hub mgmt zone (rg-eus2-hub-evergreen-01) → hub VNet  → PE NIC IP
-          # ASO only creates the private endpoint and the zone group that
-          # auto-registers the PE NIC IP into the hub mgmt zone.
+          # Split-horizon DNS — both DNS zones are Terraform-managed:
+          #   BYO zone      (rg-eus2-spoke-evergreen-02) → spoke VNet → spoke NIC IP  (AKS-managed)
+          #   Hub mgmt zone (rg-eus2-hub-evergreen-01)   → hub VNet  → PE NIC IP      (set by ASO A record below)
+          #
+          # BYO-DNS AKS clusters do not populate customDnsConfigs on the PE, so
+          # the zone-group auto-registration mechanism does not work. Instead we
+          # use ASO to write the A record directly into the hub mgmt zone.
 
           # ── Private endpoint ───────────────────────────────────────────────
           kubectl apply -f manifests/04.1-private-endpoint-byodns/private-endpoint.yaml
@@ -355,30 +357,34 @@ jobs:
             --namespace default \
             --timeout=10m
 
-          # ── DNS zone group ─────────────────────────────────────────────────
-          # Binds pe-aks-spoke-02 to the Terraform-managed hub mgmt zone in
-          # rg-eus2-hub-evergreen-01. Azure auto-registers the PE NIC IP as:
-          #   aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io
-          kubectl apply -f manifests/04.1-private-endpoint-byodns/dns-zonegroup.yaml
-
-          echo "Waiting for PrivateDnsZoneGroup to become Ready (up to 5 min)..."
-          kubectl wait privateendpointsprivatednszonegroups.network.azure.com/pe-aks-spoke-02-dnsgroup \
-            --for=condition=Ready \
-            --namespace default \
-            --timeout=5m
-
-          # Retrieve the PE NIC IP for the verification hint below
+          # ── Retrieve the PE NIC IP ─────────────────────────────────────────
           PE_NIC_ID=$(az network private-endpoint show \
             -g rg-eus2-hub-evergreen-01 \
             -n pe-aks-spoke-02 \
             --query "networkInterfaces[0].id" -o tsv)
           PE_NIC_IP=$(az network nic show --ids "${PE_NIC_ID}" \
             --query "ipConfigurations[0].privateIPAddress" -o tsv)
+          echo "PE NIC IP: ${PE_NIC_IP}"
+
+          # ── A record in hub mgmt zone ──────────────────────────────────────
+          # Writes aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io → PE NIC IP
+          # into the hub mgmt zone (rg-eus2-hub-evergreen-01).
+          sed "s|<pe-nic-ip>|${PE_NIC_IP}|g" \
+            manifests/04.1-private-endpoint-byodns/dns-a-record.yaml \
+            > /tmp/dns-a-record-spoke2-rendered.yaml
+
+          kubectl apply -f /tmp/dns-a-record-spoke2-rendered.yaml
+
+          echo "Waiting for PrivateDnsZonesARecord to become Ready (up to 3 min)..."
+          kubectl wait privatednszonesarecords.network.azure.com/spoke-02-api-server-a-record \
+            --for=condition=Ready \
+            --namespace default \
+            --timeout=3m
 
           echo ""
           echo "=== Deployed resources ==="
           kubectl get privateendpoints.network.azure.com/pe-aks-spoke-02 -n default -o wide || true
-          kubectl get privateendpointsprivatednszonegroups.network.azure.com/pe-aks-spoke-02-dnsgroup -n default -o wide || true
+          kubectl get privatednszonesarecords.network.azure.com/spoke-02-api-server-a-record -n default -o wide || true
           echo ""
           echo "=== Verify resolution ==="
           echo "  Hub VNet / VPN (should return ${PE_NIC_IP}):"
