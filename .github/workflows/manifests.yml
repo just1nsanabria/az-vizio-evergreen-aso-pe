@@ -298,9 +298,16 @@ jobs:
       - name: "04.1 – Deploy private endpoint for spoke-02 (BYO DNS)"
         if: github.event.inputs.step == '04.1-private-endpoint'
         run: |
-          # All DNS values are statically known because spoke-02 uses a BYO
-          # private DNS zone (privatelink.eastus2.azmk8s.io). No GUID lookups.
+          # Split-horizon DNS using a shadow zone in the spoke RG:
+          #   BYO zone  (rg-eus2-hub-evergreen-01, linked to spoke VNet by AKS)
+          #     → aks-eus2-spoke-02  →  spoke NIC IP  (untouched, not linked to hub VNet)
+          #   Shadow zone (rg-eus2-spoke-evergreen-01, linked to hub VNet below)
+          #     → aks-eus2-spoke-02  →  PE NIC IP     (auto-registered by zone group)
+          #
+          # Zone names are statically known (privatelink.eastus2.azmk8s.io) —
+          # no GUID lookups required.
 
+          # ── Private endpoint ───────────────────────────────────────────────
           kubectl apply -f manifests/04.1-private-endpoint/private-endpoint.yaml
 
           echo "Waiting for PrivateEndpoint to become Ready (up to 10 min)..."
@@ -309,9 +316,21 @@ jobs:
             --namespace default \
             --timeout=10m
 
-          # ── VNet link — BYO zone → hub VNet ───────────────────────────────
-          # Only needed once per hub VNet. Skip if already linked (e.g. after
-          # a rerun). ASO will reconcile idempotently but log a note either way.
+          # ── Hub-facing shadow zone ─────────────────────────────────────────
+          # Creates privatelink.eastus2.azmk8s.io in rg-eus2-spoke-evergreen-01.
+          # Separate RG from the BYO zone (hub RG) to enable split-horizon DNS.
+          kubectl apply -f manifests/04.1-private-endpoint/dns-zone.yaml
+
+          echo "Waiting for shadow PrivateDnsZone to become Ready (up to 5 min)..."
+          kubectl wait privatednszones.network.azure.com/spoke-02-hub-shadow-zone \
+            --for=condition=Ready \
+            --namespace default \
+            --timeout=5m
+
+          # ── VNet link — shadow zone → hub VNet ────────────────────────────
+          # Links the shadow zone (spoke RG) to the hub VNet so the DNS Private
+          # Resolver and hub pods / VPN clients resolve to the PE NIC IP.
+          # The BYO zone (hub RG) is NOT linked to the hub VNet.
           kubectl apply -f manifests/04.1-private-endpoint/dns-vnetlink.yaml
 
           echo "Waiting for PrivateDnsZonesVirtualNetworkLink to become Ready (up to 5 min)..."
@@ -321,8 +340,9 @@ jobs:
             --timeout=5m
 
           # ── DNS zone group ─────────────────────────────────────────────────
-          # Binds pe-aks-spoke-02 to the BYO zone. Azure registers the PE NIC
-          # IP as an A record: aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io
+          # Binds pe-aks-spoke-02 to the shadow zone. Azure auto-registers the
+          # PE NIC IP as: aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io
+          # The BYO zone AKS-managed record is not touched.
           kubectl apply -f manifests/04.1-private-endpoint/dns-zonegroup.yaml
 
           echo "Waiting for PrivateDnsZoneGroup to become Ready (up to 5 min)..."
@@ -342,11 +362,12 @@ jobs:
           echo ""
           echo "=== Deployed resources ==="
           kubectl get privateendpoints.network.azure.com/pe-aks-spoke-02 -n default -o wide || true
-          kubectl get privateendpointsprivatednszonegroups.network.azure.com/pe-aks-spoke-02-dnsgroup -n default -o wide || true
+          kubectl get privatednszones.network.azure.com/spoke-02-hub-shadow-zone -n default -o wide || true
           kubectl get privatednszonesvirtualnetworklinks.network.azure.com/link-hub-vnet-spoke-02 -n default -o wide || true
+          kubectl get privateendpointsprivatednszonegroups.network.azure.com/pe-aks-spoke-02-dnsgroup -n default -o wide || true
           echo ""
           echo "=== Verify resolution ==="
           echo "  Hub VNet / VPN (should return ${PE_NIC_IP}):"
           echo "    nslookup aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io 10.0.3.196"
-          echo "  Spoke VNet (should return spoke NIC IP — unchanged):"
+          echo "  Spoke VNet (should return spoke NIC IP — BYO zone unchanged):"
           echo "    nslookup aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io 168.63.129.16  # from spoke pod"

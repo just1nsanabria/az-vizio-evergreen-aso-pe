@@ -44,6 +44,12 @@ resource "azurerm_network_manager_static_member" "spoke_vnet" {
   target_virtual_network_id = azurerm_virtual_network.spoke.id
 }
 
+resource "azurerm_network_manager_static_member" "spoke2_vnet" {
+  name                      = "sm-spoke2-vnet"
+  network_group_id          = azurerm_network_manager_network_group.ng_spokes.id
+  target_virtual_network_id = azurerm_virtual_network.spoke2.id
+}
+
 # ---------------------------------------------------------
 # Connectivity Configuration – Hub and Spoke
 # ---------------------------------------------------------
@@ -81,5 +87,6 @@ resource "azurerm_network_manager_deployment" "hub_spoke" {
   depends_on = [
     azurerm_network_manager_static_member.hub_vnet,
     azurerm_network_manager_static_member.spoke_vnet,
+    azurerm_network_manager_static_member.spoke2_vnet,
   ]
 }

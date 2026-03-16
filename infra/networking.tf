@@ -89,3 +89,27 @@ resource "azurerm_subnet" "spoke_aks" {
   virtual_network_name = azurerm_virtual_network.spoke.name
   address_prefixes     = [var.spoke_aks_subnet_prefix, var.spoke_aks_subnet_prefix_v6]
 }
+
+# ---------------------------------------------------------
+# Spoke-02 Virtual Network
+# ---------------------------------------------------------
+resource "azurerm_virtual_network" "spoke2" {
+  name                = var.spoke2_vnet_name
+  resource_group_name = azurerm_resource_group.spoke2.name
+  location            = azurerm_resource_group.spoke2.location
+  address_space       = var.spoke2_vnet_address_space
+}
+
+resource "azurerm_subnet" "spoke2_workload" {
+  name                 = var.spoke2_workload_subnet_name
+  resource_group_name  = azurerm_resource_group.spoke2.name
+  virtual_network_name = azurerm_virtual_network.spoke2.name
+  address_prefixes     = [var.spoke2_workload_subnet_prefix, var.spoke2_workload_subnet_prefix_v6]
+}
+
+resource "azurerm_subnet" "spoke2_aks" {
+  name                 = var.spoke2_aks_subnet_name
+  resource_group_name  = azurerm_resource_group.spoke2.name
+  virtual_network_name = azurerm_virtual_network.spoke2.name
+  address_prefixes     = [var.spoke2_aks_subnet_prefix, var.spoke2_aks_subnet_prefix_v6]
+}

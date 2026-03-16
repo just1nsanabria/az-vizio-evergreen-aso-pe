@@ -45,6 +45,27 @@ output "spoke_aks_subnet_id" {
 }
 
 # ---------------------------------------------------------
+# Spoke-02
+# ---------------------------------------------------------
+output "spoke2_rg_id" {
+  description = "ARM ID of the spoke-02 resource group – pass this to the ASO ManagedCluster owner.armId."
+  value       = azurerm_resource_group.spoke2.id
+}
+
+output "spoke2_vnet_id" {
+  value = azurerm_virtual_network.spoke2.id
+}
+
+output "spoke2_vnet_name" {
+  value = azurerm_virtual_network.spoke2.name
+}
+
+output "spoke2_aks_subnet_id" {
+  description = "Resource ID of the spoke-02 AKS subnet – pass this to the ASO ManagedCluster manifest."
+  value       = azurerm_subnet.spoke2_aks.id
+}
+
+# ---------------------------------------------------------
 # AVNM
 # ---------------------------------------------------------
 output "avnm_id" {

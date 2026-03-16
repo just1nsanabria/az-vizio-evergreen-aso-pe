@@ -7,3 +7,8 @@ resource "azurerm_resource_group" "spoke" {
   name     = var.spoke_rg_name
   location = var.location
 }
+
+resource "azurerm_resource_group" "spoke2" {
+  name     = var.spoke2_rg_name
+  location = var.location
+}

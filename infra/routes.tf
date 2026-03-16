@@ -155,3 +155,68 @@ resource "azurerm_subnet_route_table_association" "spoke_aks" {
   subnet_id      = azurerm_subnet.spoke_aks.id
   route_table_id = azurerm_route_table.spoke_aks.id
 }
+
+# --- Spoke-02: Workload subnet ---
+resource "azurerm_route_table" "spoke2_workload" {
+  name                          = var.spoke2_workload_rt_name
+  resource_group_name           = azurerm_resource_group.spoke2.name
+  location                      = azurerm_resource_group.spoke2.location
+  bgp_route_propagation_enabled = false
+}
+
+resource "azurerm_route" "spoke2_workload_default_v4" {
+  name                   = "route-default-v4"
+  resource_group_name    = azurerm_resource_group.spoke2.name
+  route_table_name       = azurerm_route_table.spoke2_workload.name
+  address_prefix         = "0.0.0.0/0"
+  next_hop_type          = "VirtualAppliance"
+  next_hop_in_ip_address = local.fw_private_ip_v4
+}
+
+resource "azurerm_route" "spoke2_workload_default_v6" {
+  name                   = "route-default-v6"
+  resource_group_name    = azurerm_resource_group.spoke2.name
+  route_table_name       = azurerm_route_table.spoke2_workload.name
+  address_prefix         = "::/0"
+  next_hop_type          = "VirtualAppliance"
+  next_hop_in_ip_address = var.firewall_private_ip_v6
+}
+
+resource "azurerm_subnet_route_table_association" "spoke2_workload" {
+  subnet_id      = azurerm_subnet.spoke2_workload.id
+  route_table_id = azurerm_route_table.spoke2_workload.id
+}
+
+# --- Spoke-02: AKS subnet ---
+# Must be associated BEFORE ASO deploys the spoke-02 AKS cluster because
+# outbound_type = userDefinedRouting requires the UDR to exist at cluster
+# creation time.
+resource "azurerm_route_table" "spoke2_aks" {
+  name                          = var.spoke2_aks_rt_name
+  resource_group_name           = azurerm_resource_group.spoke2.name
+  location                      = azurerm_resource_group.spoke2.location
+  bgp_route_propagation_enabled = false
+}
+
+resource "azurerm_route" "spoke2_aks_default_v4" {
+  name                   = "route-default-v4"
+  resource_group_name    = azurerm_resource_group.spoke2.name
+  route_table_name       = azurerm_route_table.spoke2_aks.name
+  address_prefix         = "0.0.0.0/0"
+  next_hop_type          = "VirtualAppliance"
+  next_hop_in_ip_address = local.fw_private_ip_v4
+}
+
+resource "azurerm_route" "spoke2_aks_default_v6" {
+  name                   = "route-default-v6"
+  resource_group_name    = azurerm_resource_group.spoke2.name
+  route_table_name       = azurerm_route_table.spoke2_aks.name
+  address_prefix         = "::/0"
+  next_hop_type          = "VirtualAppliance"
+  next_hop_in_ip_address = var.firewall_private_ip_v6
+}
+
+resource "azurerm_subnet_route_table_association" "spoke2_aks" {
+  subnet_id      = azurerm_subnet.spoke2_aks.id
+  route_table_id = azurerm_route_table.spoke2_aks.id
+}

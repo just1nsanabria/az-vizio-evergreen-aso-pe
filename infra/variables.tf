@@ -203,6 +203,68 @@ variable "spoke_aks_subnet_prefix_v6" {
 }
 
 # ---------------------------------------------------------
+# Networking – Spoke-02
+# ---------------------------------------------------------
+variable "spoke2_rg_name" {
+  description = "Name of the spoke-02 resource group."
+  type        = string
+}
+
+variable "spoke2_vnet_name" {
+  description = "Name of the spoke-02 virtual network."
+  type        = string
+}
+
+variable "spoke2_vnet_address_space" {
+  description = "Address space for the spoke-02 VNet (IPv4 /22 + IPv6 /48). Must not overlap hub or spoke-01."
+  type        = list(string)
+}
+
+variable "spoke2_workload_subnet_name" {
+  description = "Name of the workload subnet inside the spoke-02 VNet."
+  type        = string
+  default     = "snet-workload"
+}
+
+variable "spoke2_workload_subnet_prefix" {
+  description = "IPv4 address prefix for the spoke-02 workload subnet."
+  type        = string
+}
+
+variable "spoke2_workload_subnet_prefix_v6" {
+  description = "IPv6 address prefix for the spoke-02 workload subnet."
+  type        = string
+}
+
+variable "spoke2_aks_subnet_name" {
+  description = "Name of the AKS subnet inside the spoke-02 VNet."
+  type        = string
+  default     = "snet-aks"
+}
+
+variable "spoke2_aks_subnet_prefix" {
+  description = "IPv4 address prefix for the spoke-02 AKS subnet."
+  type        = string
+}
+
+variable "spoke2_aks_subnet_prefix_v6" {
+  description = "IPv6 address prefix for the spoke-02 AKS subnet."
+  type        = string
+}
+
+variable "spoke2_workload_rt_name" {
+  description = "Name of the route table for the spoke-02 workload subnet."
+  type        = string
+  default     = "rt-spoke2-snet-workload"
+}
+
+variable "spoke2_aks_rt_name" {
+  description = "Name of the route table for the spoke-02 AKS subnet. Must exist before ASO deploys the spoke-02 cluster."
+  type        = string
+  default     = "rt-spoke2-snet-aks"
+}
+
+# ---------------------------------------------------------
 # Azure Virtual Network Manager
 # ---------------------------------------------------------
 variable "avnm_name" {
