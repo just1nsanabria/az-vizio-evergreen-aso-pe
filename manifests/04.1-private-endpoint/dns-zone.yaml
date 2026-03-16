@@ -1,9 +1,9 @@
 # ARCHIVED — no longer applied by ASO.
 #
-# The hub-facing shadow DNS zone (privatelink.eastus2.azmk8s.io in
+# The hub management DNS zone (privatelink.eastus2.azmk8s.io in
 # rg-eus2-hub-evergreen-01) is now created and managed by Terraform:
 #
-#   resource "azurerm_private_dns_zone" "spoke2_aks_hub_shadow"  (infra/networking.tf)
+#   resource "azurerm_private_dns_zone" "spoke2_aks_hub"  (infra/networking.tf)
 #
 # This file is kept for reference only. The workflow (04.1-private-endpoint
 # step in manifests.yml) no longer applies it.

@@ -1,9 +1,9 @@
 # ARCHIVED — no longer applied by ASO.
 #
-# The VNet link from the hub-facing shadow DNS zone to the hub VNet is now
+# The VNet link from the hub management DNS zone to the hub VNet is now
 # created and managed by Terraform:
 #
-#   resource "azurerm_private_dns_zone_virtual_network_link" "spoke2_aks_hub_shadow"  (infra/networking.tf)
+#   resource "azurerm_private_dns_zone_virtual_network_link" "spoke2_aks_hub"  (infra/networking.tf)
 #
 # This file is kept for reference only. The workflow (04.1-private-endpoint
 # step in manifests.yml) no longer applies it.

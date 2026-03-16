@@ -1,18 +1,18 @@
 # DNS Zone Group for the spoke-02 AKS Private Endpoint.
 #
-# Binds pe-aks-spoke-02 to the Terraform-managed hub-facing shadow zone
+# Binds pe-aks-spoke-02 to the Terraform-managed hub management DNS zone
 # (privatelink.eastus2.azmk8s.io in rg-eus2-hub-evergreen-01). Azure
 # automatically registers the PE NIC private IP as an A record in that zone:
 #
 #   aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io  →  <PE NIC IP in snet-pe>
 #
 # Split-horizon layout (both zones managed by Terraform, PE registration by ASO):
-#   BYO zone  (rg-eus2-spoke-evergreen-02) → spoke VNet → spoke NIC IP  (AKS-managed)
-#   Shadow zone (rg-eus2-hub-evergreen-01)  → hub VNet  → PE NIC IP     (registered here)
+#   BYO zone      (rg-eus2-spoke-evergreen-02) → spoke VNet → spoke NIC IP  (AKS-managed)
+#   Hub mgmt zone (rg-eus2-hub-evergreen-01)   → hub VNet  → PE NIC IP      (registered here)
 #
-# The shadow zone and its hub VNet link are created by Terraform:
-#   azurerm_private_dns_zone.spoke2_aks_hub_shadow
-#   azurerm_private_dns_zone_virtual_network_link.spoke2_aks_hub_shadow
+# The hub mgmt zone and its hub VNet link are created by Terraform:
+#   azurerm_private_dns_zone.spoke2_aks_hub
+#   azurerm_private_dns_zone_virtual_network_link.spoke2_aks_hub
 #
 apiVersion: network.azure.com/v1api20220701
 kind: PrivateEndpointsPrivateDnsZoneGroup
@@ -27,6 +27,6 @@ spec:
   privateDnsZoneConfigs:
     - name: aks-dns-config
       privateDnsZoneReference:
-        # Terraform-managed shadow zone in hub RG.
-        # terraform -chdir=../../infra output spoke2_aks_hub_shadow_zone_id
+        # Terraform-managed hub mgmt zone in hub RG.
+        # terraform -chdir=../../infra output spoke2_aks_hub_zone_id
         armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01/providers/Microsoft.Network/privateDnsZones/privatelink.eastus2.azmk8s.io
