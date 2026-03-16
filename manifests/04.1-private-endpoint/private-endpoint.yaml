@@ -1,0 +1,36 @@
+# Private Endpoint for the spoke-02 AKS management plane.
+#
+# Creates a Private Endpoint in the hub snet-pe subnet pointing at the
+# aks-eus2-spoke-02 cluster. Because this cluster uses a BYO private DNS zone
+# (privatelink.eastus2.azmk8s.io in rg-eus2-hub-evergreen-01), the DNS zone
+# name and A record hostname are known before provisioning — no GUID lookups
+# needed post-deploy.
+#
+# All values are statically known from the BYO DNS setup in 03.1-spoke-cluster:
+#   Subscription:  f9ea6521-6599-4549-a5f1-5986548330f8
+#   Hub RG:        rg-eus2-hub-evergreen-01
+#   Hub PE subnet: snet-pe in vnet-eus2-hub-evergreen-01
+#   Spoke cluster: aks-eus2-spoke-02 in rg-eus2-spoke-evergreen-01
+#
+apiVersion: network.azure.com/v1api20220701
+kind: PrivateEndpoint
+metadata:
+  name: pe-aks-spoke-02
+  namespace: default
+spec:
+  location: eastus2
+
+  # Private endpoint lives in the hub resource group
+  owner:
+    armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01
+
+  subnet:
+    reference:
+      armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01/providers/Microsoft.Network/virtualNetworks/vnet-eus2-hub-evergreen-01/subnets/snet-pe
+
+  privateLinkServiceConnections:
+    - name: aksPrivateLink
+      privateLinkServiceReference:
+        armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-01/providers/Microsoft.ContainerService/managedClusters/aks-eus2-spoke-02
+      groupIds:
+        - management

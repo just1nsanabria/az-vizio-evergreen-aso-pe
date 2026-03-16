@@ -1,0 +1,33 @@
+# PrivateDnsZonesVirtualNetworkLink — hub VNet → BYO zone
+#
+# Links the pre-existing BYO private DNS zone (privatelink.eastus2.azmk8s.io
+# in rg-eus2-hub-evergreen-01) to the hub VNet. This allows the DNS Private
+# Resolver and any hub pod or VPN client to resolve the spoke-02 API server
+# FQDN to the PE NIC IP registered by dns-zonegroup.yaml.
+#
+# NOTE: This manifest is only needed once per hub VNet. If the hub VNet is
+# already linked to the BYO zone from a previous spoke deployment, skip this
+# file to avoid a duplicate link error. Verify first:
+#
+#   az network private-dns link vnet list \
+#     -g rg-eus2-hub-evergreen-01 \
+#     -z privatelink.eastus2.azmk8s.io \
+#     --query "[].name" -o tsv
+#
+apiVersion: network.azure.com/v1api20200601
+kind: PrivateDnsZonesVirtualNetworkLink
+metadata:
+  name: link-hub-vnet-spoke-02
+  namespace: default
+spec:
+  location: global
+
+  # Owner is the BYO zone in hub RG — pre-created in 03.1-spoke-cluster
+  owner:
+    armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01/providers/Microsoft.Network/privateDnsZones/privatelink.eastus2.azmk8s.io
+
+  registrationEnabled: false
+
+  virtualNetwork:
+    reference:
+      armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01/providers/Microsoft.Network/virtualNetworks/vnet-eus2-hub-evergreen-01

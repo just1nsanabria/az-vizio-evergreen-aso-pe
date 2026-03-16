@@ -1,0 +1,141 @@
+# Spoke AKS cluster deployed via ASO ManagedCluster CRD.
+# Uses a BYO (Bring Your Own) private DNS zone so the API server FQDN is
+# fully predictable with no GUID zone prefix and no random hostname suffix:
+#
+#   aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io  →  <spoke NIC IP>
+#
+# Prerequisites:
+#   1. ASO is running in hub AKS (see ../02-aso).
+#   2. The spoke route table (rt-spoke-snet-aks) was created by Terraform Phase 1
+#      and associated with the spoke snet-aks subnet — required before this
+#      cluster can come up because outboundType is userDefinedRouting.
+#   3. Replace ALL <placeholder> values using Terraform outputs:
+#
+#        terraform -chdir=../../infra output spoke_rg_id
+#        terraform -chdir=../../infra output spoke_aks_subnet_id
+#
+#   4. BYO DNS pre-work (must be done before applying this manifest):
+#
+#      a) Create a User-Assigned Managed Identity for the spoke control plane:
+#           az identity create \
+#             --name uami-aks-eus2-spoke-byodns \
+#             --resource-group rg-eus2-evergreen-mgmt \
+#             --location eastus2
+#
+#      b) Create the BYO private DNS zone (once; shared across spoke clusters):
+#           az network private-dns zone create \
+#             --resource-group rg-eus2-evergreen-mgmt \
+#             --name privatelink.eastus2.azmk8s.io
+#
+#      c) Apply Private DNS Zone Contributor role to the UAMI on the zone:
+#           ZONE_ID=$(az network private-dns zone show \
+#             -g rg-eus2-evergreen-mgmt \
+#             -n privatelink.eastus2.azmk8s.io \
+#             --query id -o tsv)
+#           UAMI_PRINCIPAL=$(az identity show \
+#             -g rg-eus2-evergreen-mgmt \
+#             -n uami-aks-eus2-spoke-byodns \
+#             --query principalId -o tsv)
+#           az role assignment create \
+#             --assignee-object-id "$UAMI_PRINCIPAL" \
+#             --assignee-principal-type ServicePrincipal \
+#             --role "Private DNS Zone Contributor" \
+#             --scope "$ZONE_ID"
+#
+#      d) Apply Network Contributor role to the UAMI on the spoke VNet:
+#           VNET_ID=$(az network vnet show \
+#             -g rg-eus2-spoke-evergreen-01 \
+#             -n vnet-eus2-spoke-evergreen-01 \
+#             --query id -o tsv)
+#           az role assignment create \
+#             --assignee-object-id "$UAMI_PRINCIPAL" \
+#             --assignee-principal-type ServicePrincipal \
+#             --role "Network Contributor" \
+#             --scope "$VNET_ID"
+#
+#      e) Get the UAMI ARM ID for the identity block below:
+#           az identity show \
+#             -g rg-eus2-spoke-evergreen-01 \
+#             -n uami-aks-eus2-spoke-02 \
+#             --query id -o tsv
+#
+# API version reference:
+#   https://azure.github.io/azure-service-operator/reference/containerservice/
+apiVersion: containerservice.azure.com/v1api20231001
+kind: ManagedCluster
+metadata:
+  name: aks-eus2-spoke-02
+  namespace: default
+spec:
+  location: eastus2
+
+  owner:
+    # Output: terraform -chdir=../../infra output spoke_rg_id
+    armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-01
+
+
+  dnsPrefix: aks-eus2-spoke-02
+
+  # ── Private cluster ─────────────────────────────────────────────────────────
+  apiServerAccessProfile:
+    enablePrivateCluster: true
+    privateDNSZone: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01/providers/Microsoft.Network/privateDnsZones/privatelink.eastus2.azmk8s.io
+
+  # ── Identity ────────────────────────────────────────────────────────────────
+  # BYO DNS requires UserAssigned — SystemAssigned cannot be pre-granted roles
+  # on the DNS zone before the cluster exists.
+  identity:
+    type: UserAssigned
+    userAssignedIdentities:
+      - reference:
+          # az identity show -g rg-eus2-evergreen-mgmt -n uami-aks-eus2-spoke-byodns --query id -o tsv
+          armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-evergreen-mgmt/providers/Microsoft.ManagedIdentity/userAssignedIdentities/uami-aks-eus2-spoke-byodns
+
+  # ── Node pool ───────────────────────────────────────────────────────────────
+  agentPoolProfiles:
+    - name: system
+      count: 3
+      vmSize: Standard_D4s_v3
+      osType: Linux
+      mode: System
+      # Dual-stack node pool
+      osDiskSizeGB: 128
+      vnetSubnetReference:
+        # Output: terraform -chdir=../../infra output spoke_aks_subnet_id
+        armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-spoke-evergreen-01/providers/Microsoft.Network/virtualNetworks/vnet-eus2-spoke-evergreen-01/subnets/snet-aks
+      nodeTaints: []
+
+  # ── Networking ───────────────────────────────────────────────────────────────
+  networkProfile:
+    networkPlugin:        azure
+    networkPluginMode:    overlay
+    networkDataplane:     azure
+    ipFamilies:
+      - IPv4
+      - IPv6
+    # IPv4 / IPv6 pod CIDRs (must not overlap hub cluster or any VNet space)
+    podCidrs:
+      - 192.169.0.0/16
+      - fd00:20::/112
+    # IPv4 / IPv6 service CIDRs
+    serviceCidrs:
+      - 172.18.0.0/16
+      - fd00:21::/108
+    dnsServiceIP: 172.18.0.10
+    # All egress must traverse the Azure Firewall via UDR (route table created
+    # by Terraform Phase 1 and associated with the spoke snet-aks subnet).
+    outboundType: userDefinedRouting
+
+  # ── Security / workload identity ──────────────────────────────────────────
+  oidcIssuerProfile:
+    enabled: true
+  securityProfile:
+    workloadIdentity:
+      enabled: true
+
+  # ── Optional add-ons ────────────────────────────────────────────────────────
+  addonProfiles:
+    azurePolicy:
+      enabled: false
+    omsAgent:
+      enabled: false
