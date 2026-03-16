@@ -18,9 +18,9 @@ on:
           - 01-cert-manager
           - 02-aso
           - 03-spoke-cluster
-          - 03.1-spoke-cluster
+          - 03.1-spoke-cluster-byodns
           - 04-private-endpoint
-          - 04.1-private-endpoint
+          - 04.1-private-endpoint-byodns
 
 concurrency:
   group: manifests-${{ github.ref }}
@@ -163,7 +163,7 @@ jobs:
             --selector=app.kubernetes.io/name=azure-service-operator \
             --timeout=120s
 
-          kubectl apply -f manifests/03.1-spoke-cluster/custom-managed-cluster.yaml
+          kubectl apply -f manifests/03.1-spoke-cluster-byodns/custom-managed-cluster.yaml
 
           # AKS cluster provisioning routinely takes 15-25+ minutes.
           # Poll with a 45-minute timeout; print ASO status every 5 minutes
@@ -347,7 +347,7 @@ jobs:
           # auto-registers the PE NIC IP into the hub mgmt zone.
 
           # ── Private endpoint ───────────────────────────────────────────────
-          kubectl apply -f manifests/04.1-private-endpoint/private-endpoint.yaml
+          kubectl apply -f manifests/04.1-private-endpoint-byodns/private-endpoint.yaml
 
           echo "Waiting for PrivateEndpoint to become Ready (up to 10 min)..."
           kubectl wait privateendpoints.network.azure.com/pe-aks-spoke-02 \
@@ -359,7 +359,7 @@ jobs:
           # Binds pe-aks-spoke-02 to the Terraform-managed hub mgmt zone in
           # rg-eus2-hub-evergreen-01. Azure auto-registers the PE NIC IP as:
           #   aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io
-          kubectl apply -f manifests/04.1-private-endpoint/dns-zonegroup.yaml
+          kubectl apply -f manifests/04.1-private-endpoint-byodns/dns-zonegroup.yaml
 
           echo "Waiting for PrivateDnsZoneGroup to become Ready (up to 5 min)..."
           kubectl wait privateendpointsprivatednszonegroups.network.azure.com/pe-aks-spoke-02-dnsgroup \
