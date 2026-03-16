@@ -68,3 +68,29 @@ resource "azurerm_role_assignment" "aks_kubelet_hub_rg_contributor" {
   role_definition_name = "Contributor"
   principal_id         = azurerm_kubernetes_cluster.aks.kubelet_identity[0].object_id
 }
+
+# ---------------------------------------------------------
+# Spoke-02 UAMI role assignments
+# The UAMI must exist before the spoke-02 AKS cluster is created (BYO DNS
+# requires UserAssigned identity so the DNS zone permission can be granted
+# before cluster provisioning). The UAMI is looked up by name/RG via a
+# data source so Terraform does not own its lifecycle.
+# ---------------------------------------------------------
+data "azurerm_user_assigned_identity" "spoke2_aks" {
+  name                = var.spoke2_aks_uami_name
+  resource_group_name = var.spoke2_aks_uami_rg
+}
+
+# Private DNS Zone Contributor on the BYO zone so AKS can write the A record
+resource "azurerm_role_assignment" "spoke2_aks_dns_zone_contributor" {
+  scope                = azurerm_private_dns_zone.spoke2_aks.id
+  role_definition_name = "Private DNS Zone Contributor"
+  principal_id         = data.azurerm_user_assigned_identity.spoke2_aks.principal_id
+}
+
+# Network Contributor on the spoke-02 VNet so AKS can manage NIC/subnet resources
+resource "azurerm_role_assignment" "spoke2_aks_vnet_network_contributor" {
+  scope                = azurerm_virtual_network.spoke2.id
+  role_definition_name = "Network Contributor"
+  principal_id         = data.azurerm_user_assigned_identity.spoke2_aks.principal_id
+}

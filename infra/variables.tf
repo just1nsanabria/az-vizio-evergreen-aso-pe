@@ -210,6 +210,16 @@ variable "spoke2_rg_name" {
   type        = string
 }
 
+variable "spoke2_aks_uami_name" {
+  description = "Name of the user-assigned managed identity used by the spoke-02 AKS control plane (BYO DNS requires UAMI)."
+  type        = string
+}
+
+variable "spoke2_aks_uami_rg" {
+  description = "Resource group containing the spoke-02 AKS UAMI."
+  type        = string
+}
+
 variable "spoke2_vnet_name" {
   description = "Name of the spoke-02 virtual network."
   type        = string

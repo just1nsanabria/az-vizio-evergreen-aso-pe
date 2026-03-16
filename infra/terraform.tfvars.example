@@ -12,7 +12,9 @@ location        = "eastus2"
 # Resource Groups
 hub_rg_name    = "rg-eus2-hub-01"
 spoke_rg_name  = "rg-eus2-spoke-01"
-spoke2_rg_name = "rg-eus2-spoke-02"
+spoke2_rg_name         = "rg-eus2-spoke-02"
+spoke2_aks_uami_name   = "uami-aks-eus2-spoke-byodns"
+spoke2_aks_uami_rg     = "rg-eus2-evergreen-mgmt"
 
 # Hub VNet  (IPv4 10.0.0.0/22 + IPv6 fd00:1::/48)
 hub_vnet_name             = "vnet-eus2-hub-01"
