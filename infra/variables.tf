@@ -255,13 +255,13 @@ variable "spoke2_aks_subnet_prefix_v6" {
 variable "spoke2_workload_rt_name" {
   description = "Name of the route table for the spoke-02 workload subnet."
   type        = string
-  default     = "rt-spoke2-snet-workload"
+  default     = "rt-spoke-02-snet-workload"
 }
 
 variable "spoke2_aks_rt_name" {
   description = "Name of the route table for the spoke-02 AKS subnet. Must exist before ASO deploys the spoke-02 cluster."
   type        = string
-  default     = "rt-spoke2-snet-aks"
+  default     = "rt-spoke-02-snet-aks"
 }
 
 # ---------------------------------------------------------

@@ -12,7 +12,7 @@ location        = "eastus2"
 # Resource Groups
 hub_rg_name    = "rg-eus2-hub-01"
 spoke_rg_name  = "rg-eus2-spoke-01"
-spoke2_rg_name = "rg-eus2-spoke2-01"
+spoke2_rg_name = "rg-eus2-spoke-02"
 
 # Hub VNet  (IPv4 10.0.0.0/22 + IPv6 fd00:1::/48)
 hub_vnet_name             = "vnet-eus2-hub-01"
@@ -46,7 +46,7 @@ spoke_aks_subnet_prefix         = "10.4.2.0/23"
 spoke_aks_subnet_prefix_v6      = "fd00:2:0:1::/64"
 
 # Spoke-02 VNet  (IPv4 10.8.0.0/22 + IPv6 fd00:3::/48)
-spoke2_vnet_name                  = "vnet-eus2-spoke2-01"
+spoke2_vnet_name                  = "vnet-eus2-spoke-02"
 spoke2_vnet_address_space         = ["10.8.0.0/22", "fd00:3::/48"]
 spoke2_workload_subnet_name       = "snet-workload"
 spoke2_workload_subnet_prefix     = "10.8.0.0/23"
