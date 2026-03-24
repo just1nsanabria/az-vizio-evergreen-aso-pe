@@ -58,46 +58,74 @@ graph TD
         FW["Azure Firewall [TF]\nafw-eus2-hub-evergreen-01\nAzureFirewallSubnet"]:::tf
         DNSRes["DNS Private Resolver [TF]\n10.0.3.196 · snet-dns-inbound"]:::tf
         HubAKS["Hub AKS [TF]\naks-eus2-hub-evergreen-01\nsnet-aks · 10.0.0.0/23"]:::tf
-        PE["Private Endpoint [ASO]\npe-aks-spoke-01\nsnet-pe · 10.0.3.x"]:::aso
+        PE1["Private Endpoint [ASO]\npe-aks-spoke-01\nsnet-pe · 10.0.3.x"]:::aso
+        PE2["Private Endpoint [ASO]\npe-aks-spoke-02\nsnet-pe · 10.0.3.x"]:::aso
     end
 
-    subgraph HubDNSZone["Hub RG — Shadow DNS Zone"]
-        HubZone["PrivateDnsZone [ASO]\n{guid}.privatelink.eastus2.azmk8s.io"]:::aso
-        HubARec["A Record [ASO]\n{hostname} → 10.0.3.x  (PE NIC IP)"]:::aso
-        HubVLink["VNet Link [ASO]\nhub zone → hub VNet"]:::aso
+    subgraph HubShadowZone["Hub RG — Shadow DNS Zone (spoke-01)"]
+        Hz1["PrivateDnsZone [ASO]\n{guid}.privatelink.eastus2.azmk8s.io"]:::aso
+        Ha1["A Record [ASO]\n{hostname} → 10.0.3.x  (PE NIC IP)"]:::aso
+        Hv1["VNet Link [ASO]\nhub shadow zone → hub VNet"]:::aso
+    end
+
+    subgraph HubMgmtZone["Hub RG — Hub Mgmt Zone (spoke-02)"]
+        Hz2["PrivateDnsZone [TF]\nprivatelink.eastus2.azmk8s.io"]:::tf
+        Ha2["A Record [ASO]\naks-eus2-spoke-02 → 10.0.3.x  (PE NIC IP)"]:::aso
+        Hv2["VNet Link [TF]\nhub mgmt zone → hub VNet"]:::tf
     end
 
     subgraph SpokeVNet["Spoke VNet — 10.4.0.0/22"]
         SpokeAKS["Spoke AKS [ASO]\naks-eus2-spoke-01\nsnet-aks · 10.4.2.0/23"]:::aso
     end
 
-    subgraph MCDNSZone["MC_ RG — AKS-managed DNS Zone"]
-        MCZoneNode["PrivateDnsZone [Azure]\n{guid}.privatelink.eastus2.azmk8s.io\n(auto-created by AKS, untouched)"]:::managed
-        MCARec["A Record [Azure]\n{hostname} → 10.4.x.x  (spoke NIC IP)"]:::managed
-        ZG["PrivateDnsZoneGroup [ASO]\npe-aks-spoke-01-dnsgroup"]:::aso
+    subgraph MCZone["MC_ RG — AKS-managed Zone (spoke-01)"]
+        ZG1["PrivateDnsZoneGroup [ASO]\npe-aks-spoke-01-dnsgroup"]:::aso
+        MCz1["PrivateDnsZone [Azure]\n{guid}.privatelink.eastus2.azmk8s.io\n(auto-created by AKS, untouched)"]:::managed
+        MCa1["A Record [Azure]\n{hostname} → 10.4.x.x  (spoke NIC IP)"]:::managed
     end
 
-    Client       -->|"P2S VPN · OpenVPN + Entra ID"| VPNGW
-    Client       -->|"DNS query to 10.0.3.196"| DNSRes
-    DNSRes       -->|"zone lookup (VNet-linked)"| HubZone
-    HubZone      --> HubARec
-    HubZone      --> HubVLink
-    Client       -->|"kubectl · TCP 443"| PE
-    PE           -->|"Azure Private Link"| SpokeAKS
-    PE           -->|"binds PE to MC_ zone"| ZG
-    ZG           --> MCZoneNode
-    MCZoneNode   --> MCARec
-    HubAKS       -.->|"AVNM hub-spoke peering"| SpokeAKS
+    subgraph Spoke2VNet["Spoke-02 VNet — 10.8.0.0/22"]
+        Spoke2AKS["Spoke-02 AKS [ASO]\naks-eus2-spoke-02\nsnet-aks · 10.8.2.0/23\n(BYO DNS)"]:::aso
+    end
+
+    subgraph BYODNSZone["Spoke-02 RG — BYO DNS Zone"]
+        BYOz["PrivateDnsZone [TF]\nprivatelink.eastus2.azmk8s.io\n(pre-created, GUID-free FQDN)"]:::tf
+        BYOa["A Record [AKS]\naks-eus2-spoke-02 → 10.8.x.x  (spoke-02 NIC IP)"]:::managed
+    end
+
+    Client      -->|"P2S VPN · OpenVPN + Entra ID"| VPNGW
+    Client      -->|"DNS query to 10.0.3.196"| DNSRes
+    DNSRes      -->|"zone lookup (hub-linked)"| Hz1
+    DNSRes      -->|"zone lookup (hub-linked)"| Hz2
+    Hz1         --> Ha1
+    Hz1         --> Hv1
+    Hz2         --> Ha2
+    Hz2         --> Hv2
+    Client      -->|"kubectl · TCP 443"| PE1
+    Client      -->|"kubectl · TCP 443"| PE2
+    PE1         -->|"Azure Private Link"| SpokeAKS
+    PE2         -->|"Azure Private Link"| Spoke2AKS
+    PE1         -->|"binds PE to MC_ zone"| ZG1
+    ZG1         --> MCz1
+    MCz1        --> MCa1
+    HubAKS      -.->|"AVNM hub-spoke peering"| SpokeAKS
+    HubAKS      -.->|"AVNM hub-spoke peering"| Spoke2AKS
+    Spoke2AKS   -.->|"auto-linked by AKS"| BYOz
+    BYOz        --> BYOa
 ```
 
 **DNS resolution paths:**
 
 | Caller | DNS server | Zone resolved | Returns |
 |---|---|---|---|
-| VPN client / hub workload | `10.0.3.196` (DNS Private Resolver) | Hub shadow zone (hub RG) | PE NIC IP `10.0.3.x` |
-| Spoke pod | `168.63.129.16` (Azure DNS) | MC_ zone (auto-linked to spoke VNet) | Spoke NIC IP `10.4.x.x` |
+| VPN client / hub workload → spoke-01 | `10.0.3.196` (DNS Private Resolver) | Hub shadow zone — `{guid}.privatelink.eastus2.azmk8s.io` (hub RG) | PE NIC IP `10.0.3.x` |
+| Spoke-01 pod | `168.63.129.16` (Azure DNS) | MC_ zone — `{guid}.privatelink.eastus2.azmk8s.io` (auto-linked to spoke VNet) | Spoke NIC IP `10.4.x.x` |
+| VPN client / hub workload → spoke-02 | `10.0.3.196` (DNS Private Resolver) | Hub mgmt zone — `privatelink.eastus2.azmk8s.io` (hub RG) | PE NIC IP `10.0.3.x` |
+| Spoke-02 pod | `168.63.129.16` (Azure DNS) | BYO zone — `privatelink.eastus2.azmk8s.io` (auto-linked to spoke-02 VNet by AKS) | Spoke-02 NIC IP `10.8.x.x` |
 
-The MC_ zone is never modified — AKS manages it exclusively. The hub shadow zone (same GUID-based name) is a separate resource in the hub RG, linked only to the hub VNet, and is owned entirely by ASO.
+The MC_ zone (spoke-01) is never modified — AKS manages it exclusively. The hub shadow zone (same GUID-based name) is a separate resource in the hub RG, linked only to the hub VNet, and is owned entirely by ASO.
+
+For spoke-02, the BYO DNS zone (`privatelink.eastus2.azmk8s.io`) is pre-created by Terraform in the spoke-02 RG with a predictable, GUID-free FQDN (`aks-eus2-spoke-02.privatelink.eastus2.azmk8s.io`). AKS auto-links this zone to the spoke-02 VNet. A separate hub mgmt zone with the same name in the hub RG is linked to the hub VNet so VPN clients and hub workloads resolve to the PE NIC IP instead.
 
 ---
 
