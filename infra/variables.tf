@@ -59,22 +59,6 @@ variable "hub_aks_subnet_prefix_v6" {
   type        = string
 }
 
-variable "hub_mgmt_subnet_name" {
-  description = "Name of the management subnet inside the hub VNet."
-  type        = string
-  default     = "snet-mgmt"
-}
-
-variable "hub_mgmt_subnet_prefix" {
-  description = "IPv4 address prefix for the management subnet."
-  type        = string
-}
-
-variable "hub_mgmt_subnet_prefix_v6" {
-  description = "IPv6 address prefix for the management subnet."
-  type        = string
-}
-
 variable "hub_fw_subnet_prefix" {
   description = "IPv4 address prefix for AzureFirewallSubnet (minimum /26)."
   type        = string
@@ -137,12 +121,6 @@ variable "hub_aks_rt_name" {
   description = "Name of the route table for the hub AKS subnet."
   type        = string
   default     = "rt-hub-snet-aks"
-}
-
-variable "hub_mgmt_rt_name" {
-  description = "Name of the route table for the hub management subnet."
-  type        = string
-  default     = "rt-hub-snet-mgmt"
 }
 
 variable "spoke_workload_rt_name" {
@@ -422,28 +400,6 @@ variable "hub_dns_inbound_subnet_name" {
 variable "hub_dns_inbound_subnet_prefix" {
   description = "IPv4 address prefix for the DNS Private Resolver inbound subnet (/28 minimum, dedicated). Must fall within hub_vnet_address_space."
   type        = string
-}
-
-# ---------------------------------------------------------
-# Jumpbox
-# ---------------------------------------------------------
-
-variable "jumpbox_vm_name" {
-  description = "Name of the Windows jumpbox VM."
-  type        = string
-  default     = "vm-jumpbox-01"
-}
-
-variable "jumpbox_admin_username" {
-  description = "Local administrator username for the jumpbox VM."
-  type        = string
-  default     = "azureadmin"
-}
-
-variable "jumpbox_admin_password" {
-  description = "Local administrator password for the jumpbox VM. Store in a secret; never commit plaintext."
-  type        = string
-  sensitive   = true
 }
 
 

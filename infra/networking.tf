@@ -15,13 +15,6 @@ resource "azurerm_subnet" "aks" {
   address_prefixes     = [var.hub_aks_subnet_prefix, var.hub_aks_subnet_prefix_v6]
 }
 
-resource "azurerm_subnet" "mgmt" {
-  name                 = var.hub_mgmt_subnet_name
-  resource_group_name  = azurerm_resource_group.hub.name
-  virtual_network_name = azurerm_virtual_network.hub.name
-  address_prefixes     = [var.hub_mgmt_subnet_prefix, var.hub_mgmt_subnet_prefix_v6]
-}
-
 # Azure Firewall requires a subnet named exactly "AzureFirewallSubnet" (/26 minimum)
 resource "azurerm_subnet" "firewall" {
   name                 = "AzureFirewallSubnet"

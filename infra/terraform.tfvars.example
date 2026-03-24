@@ -22,10 +22,6 @@ hub_vnet_address_space    = ["10.0.0.0/22", "fd00:1::/48"]
 hub_aks_subnet_name       = "snet-aks"
 hub_aks_subnet_prefix     = "10.0.0.0/23"
 hub_aks_subnet_prefix_v6  = "fd00:1::/64"
-hub_mgmt_subnet_name      = "snet-mgmt"
-hub_mgmt_subnet_prefix    = "10.0.2.0/24"
-hub_mgmt_subnet_prefix_v6 = "fd00:1:0:1::/64"
-
 # Azure Firewall subnets (hub)
 hub_fw_subnet_prefix    = "10.0.3.0/26"
 hub_fw_subnet_prefix_v6 = "fd00:1:0:3::/64"
@@ -85,7 +81,6 @@ firewall_pip_v6_name = "pip-afw-eus2-hub-01-v6"
 
 # Route tables
 hub_aks_rt_name        = "rt-hub-snet-aks"
-hub_mgmt_rt_name       = "rt-hub-snet-mgmt"
 spoke_workload_rt_name = "rt-spoke-snet-workload"
 spoke_aks_rt_name      = "rt-spoke-snet-aks"
 

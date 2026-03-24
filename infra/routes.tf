@@ -48,49 +48,6 @@ resource "azurerm_subnet_route_table_association" "hub_aks" {
   route_table_id = azurerm_route_table.hub_aks.id
 }
 
-# --- Hub: Management subnet ---
-resource "azurerm_route_table" "hub_mgmt" {
-  name                          = var.hub_mgmt_rt_name
-  resource_group_name           = azurerm_resource_group.hub.name
-  location                      = azurerm_resource_group.hub.location
-  bgp_route_propagation_enabled = false
-}
-
-resource "azurerm_route" "hub_mgmt_default_v4" {
-  name                   = "route-default-v4"
-  resource_group_name    = azurerm_resource_group.hub.name
-  route_table_name       = azurerm_route_table.hub_mgmt.name
-  address_prefix         = "0.0.0.0/0"
-  next_hop_type          = "VirtualAppliance"
-  next_hop_in_ip_address = local.fw_private_ip_v4
-}
-
-resource "azurerm_route" "hub_mgmt_default_v6" {
-  name                   = "route-default-v6"
-  resource_group_name    = azurerm_resource_group.hub.name
-  route_table_name       = azurerm_route_table.hub_mgmt.name
-  address_prefix         = "::/0"
-  next_hop_type          = "VirtualAppliance"
-  next_hop_in_ip_address = var.firewall_private_ip_v6
-}
-
-# Return path for P2S VPN clients – without this, replies from snet-mgmt
-# (forced through the firewall by the 0.0.0.0/0 UDR) would hit the firewall
-# with no session state and be dropped. Routing return traffic back via
-# VirtualNetworkGateway keeps the path symmetric.
-resource "azurerm_route" "hub_mgmt_vpn_clients" {
-  name                = "route-vpn-clients"
-  resource_group_name = azurerm_resource_group.hub.name
-  route_table_name    = azurerm_route_table.hub_mgmt.name
-  address_prefix      = var.vpn_client_address_pool
-  next_hop_type       = "VirtualNetworkGateway"
-}
-
-resource "azurerm_subnet_route_table_association" "hub_mgmt" {
-  subnet_id      = azurerm_subnet.mgmt.id
-  route_table_id = azurerm_route_table.hub_mgmt.id
-}
-
 # --- Spoke: Workload subnet ---
 resource "azurerm_route_table" "spoke_workload" {
   name                          = var.spoke_workload_rt_name
