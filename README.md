@@ -13,20 +13,21 @@ via GitHub Actions with OIDC authentication and remote Terraform state.
 
 | Resource | Name | Notes |
 |---|---|---|
-| Resource groups | `rg-eus2-hub-evergreen-01`, `rg-eus2-spoke-evergreen-01` | |
+| Resource groups | `rg-eus2-hub-evergreen-01`, `rg-eus2-spoke-evergreen-01`, `rg-eus2-spoke-evergreen-02` | |
 | Hub VNet (dual-stack) | `vnet-eus2-hub-evergreen-01` | `10.0.0.0/22` + `fd00:1::/48` |
-| Hub subnets | `snet-aks`, `snet-mgmt`, `snet-pe`, `snet-dns-inbound`, `AzureFirewallSubnet`, `GatewaySubnet` | |
+| Hub subnets | `snet-aks`, `snet-pe`, `snet-dns-inbound`, `AzureFirewallSubnet`, `GatewaySubnet` | |
 | Spoke VNet (dual-stack) | `vnet-eus2-spoke-evergreen-01` | `10.4.0.0/22` + `fd00:2::/48` |
 | Spoke subnets | `snet-aks`, `snet-workload` | |
+| Spoke-02 VNet (dual-stack) | `vnet-eus2-spoke-evergreen-02` | `10.8.0.0/22` + `fd00:3::/48`; BYO DNS variant |
+| Spoke-02 subnets | `snet-aks`, `snet-workload` | |
 | AVNM | `avnm-evergreen-01` | Hub-spoke connectivity config + deployment |
 | Azure Firewall | `afw-eus2-hub-evergreen-01` | Standard, dual-stack, UDR egress |
-| Firewall rules | App, network, and NAT rule collections | AKS, container registries, GitHub ARC, tooling, VPN→jumpbox RDP, jumpbox DNAT |
-| Route tables | `rt-hub-snet-aks`, `rt-hub-snet-mgmt`, `rt-spoke-snet-aks`, `rt-spoke-snet-workload` | All AKS subnets force-tunnel via firewall; mgmt subnet has VPN client return route |
+| Firewall rules | App, network, and NAT rule collections | AKS, container registries, GitHub ARC, tooling |
+| Route tables | `rt-hub-snet-aks`, `rt-spoke-snet-aks`, `rt-spoke-snet-workload`, `rt-spoke-02-snet-aks`, `rt-spoke-02-snet-workload` | All AKS subnets force-tunnel via firewall |
 | DNS Private Resolver | `dnspr-eus2-hub-evergreen-01` | Inbound endpoint in `snet-dns-inbound` (`10.0.3.196`); pushed to P2S clients as DNS server |
 | Hub AKS | `aks-eus2-hub-evergreen-01` | Private, dual-stack, Azure CNI Overlay, OIDC, workload identity |
 | ASO managed identity | `mi-aso-hub` | Federated OIDC credential, Contributor on subscription |
 | VPN Gateway | `vpng-eus2-hub-evergreen-01` | `VpnGw1AZ`, OpenVPN, Entra ID P2S auth, DNS pushed via `customDnsServers` (azapi) |
-| Windows jumpbox VM | `vm-jumpbox-01` | `Standard_B2ms`, WS2025, in `snet-mgmt`, no public IP; RDP via firewall DNAT or P2S VPN |
 
 ### Phase 2 – Kubernetes / ASO (`manifests/`)
 
@@ -208,17 +209,15 @@ subscription_id = "<subscription-id>"
 tenant_id       = "<tenant-id>"
 location        = "eastus2"
 
-hub_rg_name   = "rg-eus2-hub-evergreen-01"
-spoke_rg_name = "rg-eus2-spoke-evergreen-01"
+hub_rg_name    = "rg-eus2-hub-evergreen-01"
+spoke_rg_name  = "rg-eus2-spoke-evergreen-01"
+spoke2_rg_name = "rg-eus2-spoke-evergreen-02"
 
 hub_vnet_name             = "vnet-eus2-hub-evergreen-01"
 hub_vnet_address_space    = ["10.0.0.0/22", "fd00:1::/48"]
 hub_aks_subnet_name       = "snet-aks"
 hub_aks_subnet_prefix     = "10.0.0.0/23"
 hub_aks_subnet_prefix_v6  = "fd00:1::/64"
-hub_mgmt_subnet_name      = "snet-mgmt"
-hub_mgmt_subnet_prefix    = "10.0.2.0/24"
-hub_mgmt_subnet_prefix_v6 = "fd00:1:0:1::/64"
 
 hub_fw_subnet_prefix    = "10.0.3.0/26"
 hub_fw_subnet_prefix_v6 = "fd00:1:0:3::/64"
@@ -236,6 +235,15 @@ spoke_workload_subnet_prefix_v6 = "fd00:2::/64"
 spoke_aks_subnet_name           = "snet-aks"
 spoke_aks_subnet_prefix         = "10.4.2.0/23"
 spoke_aks_subnet_prefix_v6      = "fd00:2:0:1::/64"
+
+spoke2_vnet_name                 = "vnet-eus2-spoke-evergreen-02"
+spoke2_vnet_address_space        = ["10.8.0.0/22", "fd00:3::/48"]
+spoke2_workload_subnet_name      = "snet-workload"
+spoke2_workload_subnet_prefix    = "10.8.0.0/23"
+spoke2_workload_subnet_prefix_v6 = "fd00:3::/64"
+spoke2_aks_subnet_name           = "snet-aks"
+spoke2_aks_subnet_prefix         = "10.8.2.0/23"
+spoke2_aks_subnet_prefix_v6      = "fd00:3:0:1::/64"
 
 avnm_name                     = "avnm-evergreen-01"
 avnm_ng_hub_name              = "ng-hub"
@@ -259,10 +267,11 @@ firewall_sku_tier    = "Standard"
 firewall_pip_name    = "pip-afw-eus2-hub-evergreen-01-v4"
 firewall_pip_v6_name = "pip-afw-eus2-hub-evergreen-01-v6"
 
-hub_aks_rt_name        = "rt-hub-snet-aks"
-hub_mgmt_rt_name       = "rt-hub-snet-mgmt"
-spoke_workload_rt_name = "rt-spoke-snet-workload"
-spoke_aks_rt_name      = "rt-spoke-snet-aks"
+hub_aks_rt_name         = "rt-hub-snet-aks"
+spoke_workload_rt_name  = "rt-spoke-snet-workload"
+spoke_aks_rt_name       = "rt-spoke-snet-aks"
+spoke2_workload_rt_name = "rt-spoke-02-snet-workload"
+spoke2_aks_rt_name      = "rt-spoke-02-snet-aks"
 
 aso_identity_name = "mi-aso-hub"
 aso_namespace     = "azureserviceoperator-system"
@@ -274,10 +283,6 @@ vpn_client_address_pool = "172.20.0.0/24"
 
 dns_resolver_name             = "dnspr-eus2-hub-evergreen-01"
 hub_dns_inbound_subnet_prefix = "10.0.3.192/28"
-
-jumpbox_vm_name        = "vm-jumpbox-01"
-jumpbox_admin_username = "azureadmin"
-jumpbox_admin_password = "<strong-password>"
 ```
 
 ### 5. GitHub Actions environment (approval gate)
@@ -357,31 +362,6 @@ Each run requires `production` environment approval before executing.
 
 ---
 
-## Connecting to the jumpbox
-
-The jumpbox (`vm-jumpbox-01`) has no public IP. There are two ways to reach it:
-
-**Option A — P2S VPN (recommended):** Connect the VPN, then RDP directly to the jumpbox private IP in `snet-mgmt`:
-
-```bash
-# Find the private IP
-az vm show \
-  --resource-group rg-eus2-hub-evergreen-01 \
-  --name vm-jumpbox-01 \
-  --show-details \
-  --query privateIps -o tsv
-```
-
-```
-RDP target: <private-ip>:3389
-Username:   azureadmin
-Password:   <jumpbox_admin_password from TF_VARS>
-```
-
-**Option B — Firewall DNAT:** RDP to the Azure Firewall public IP on port 3389. The `nrc-jumpbox-rdp` NAT rule collection translates this to the jumpbox private IP. No VPN required, but Entra ID Conditional Access policies on the VPN are bypassed.
-
----
-
 ## Connecting to the spoke cluster (after Phase 2)
 
 The spoke API server is reached through the private endpoint in hub `snet-pe`. Step 04 sets up a **hub-owned shadow DNS zone** (same GUID-based name as the AKS-managed MC_ zone) linked only to the hub VNet, with an A record pointing to the PE NIC IP. This means:
@@ -428,25 +408,26 @@ nslookup $(az aks show -g rg-eus2-spoke-evergreen-01 -n aks-eus2-spoke-01 --quer
 │   ├── networking.tf        # Hub + Spoke VNets and all subnets
 │   ├── avnm.tf              # AVNM hub-spoke connectivity config
 │   ├── firewall.tf          # Azure Firewall + dual-stack public IPs
-│   ├── firewall_rules.tf    # DNAT + application + network rule collections
-│   ├── routes.tf            # Route tables (all AKS subnets via firewall; VPN return route)
+│   ├── firewall_rules.tf    # Application + network rule collections
+│   ├── routes.tf            # Route tables (all AKS subnets force-tunnel via firewall)
 │   ├── dns_resolver.tf      # Azure DNS Private Resolver + inbound endpoint
 │   ├── aks.tf               # Private hub AKS cluster
 │   ├── aso.tf               # ASO managed identity + federated credential
 │   ├── vpn_gateway.tf       # P2S VPN Gateway + azapi DNS server patch
-│   ├── jumpbox.tf           # Windows jumpbox VM + NSG
 │   └── outputs.tf
 │
 └── manifests/               # Kubernetes / ASO manifests (applied by Phase 2)
     ├── 01-cert-manager/     # cert-manager Helm values
     ├── 02-aso/              # ASO Helm values (identity rendered at runtime)
     ├── 03-spoke-cluster/    # ASO ManagedCluster for spoke AKS
-    └── 04-private-endpoint/ # PE + hub shadow DNS zone + A record + VNet link
-        ├── private-endpoint.yaml   # PrivateEndpoint in hub snet-pe
-        ├── dns-zonegroup.yaml      # PrivateEndpointsPrivateDnsZoneGroup
-        ├── dns-zone.yaml           # Hub-owned PrivateDnsZone (shadow of MC_ zone)
-        ├── dns-a-record.yaml       # A record → PE NIC IP in hub zone
-        └── dns-vnetlink.yaml       # VNet link: hub zone → hub VNet
+    ├── 03.1-spoke-cluster-byodns/  # ASO ManagedCluster for spoke-02 (BYO DNS)
+    ├── 04-private-endpoint/ # PE + hub shadow DNS zone + A record + VNet link
+    │   ├── private-endpoint.yaml   # PrivateEndpoint in hub snet-pe
+    │   ├── dns-zonegroup.yaml      # PrivateEndpointsPrivateDnsZoneGroup
+    │   ├── dns-zone.yaml           # Hub-owned PrivateDnsZone (shadow of MC_ zone)
+    │   ├── dns-a-record.yaml       # A record → PE NIC IP in hub zone
+    │   └── dns-vnetlink.yaml       # VNet link: hub zone → hub VNet
+    └── 04.1-private-endpoint-byodns/  # PE + DNS A record for spoke-02 (BYO DNS)
 ```
 
 ---
@@ -465,9 +446,7 @@ nslookup $(az aks show -g rg-eus2-spoke-evergreen-01 -n aks-eus2-spoke-01 --quer
 
 **DNS Private Resolver instead of manual `.ovpn` edits** — Azure's `168.63.129.16` wire IP is not reachable by P2S VPN clients. An Azure DNS Private Resolver with an inbound endpoint in `snet-dns-inbound` provides a real hub VNet IP (`10.0.3.196`) that the VPN gateway pushes to clients automatically via `customDnsServers` (set via the `azapi` provider, which exposes properties not yet in the `azurerm` schema).
 
-**Symmetric routing for VPN→jumpbox RDP** — The management subnet route table has an explicit `172.20.0.0/24 → VirtualNetworkGateway` route so jumpbox reply traffic returns via the gateway rather than the firewall (which would drop it with no session state). A firewall network rule allows TCP/3389 from the VPN pool for completeness.
-
-**Private endpoint in hub `snet-pe` for spoke access** — Hub-resident clients (`kubectl`, ARC runner, VPN users, jumpbox) reach the spoke API server through a PE NIC in the hub VNet via Azure Private Link. No AVNM peering is required for management-plane access.
+**Private endpoint in hub `snet-pe` for spoke access** — Hub-resident clients (`kubectl`, ARC runner, VPN users) reach the spoke API server through a PE NIC in the hub VNet via Azure Private Link.
 
 ---
 
