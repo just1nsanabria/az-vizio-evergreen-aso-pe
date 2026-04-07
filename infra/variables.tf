@@ -93,6 +93,11 @@ variable "firewall_name" {
   type        = string
 }
 
+variable "firewall_policy_name" {
+  description = "Name of the Azure Firewall Policy."
+  type        = string
+}
+
 variable "firewall_sku_tier" {
   description = "SKU tier for the Azure Firewall (Standard or Premium)."
   type        = string

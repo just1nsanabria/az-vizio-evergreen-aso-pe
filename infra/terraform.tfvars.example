@@ -75,6 +75,7 @@ aks_dns_service_ip  = "172.16.0.10"
 
 # Azure Firewall
 firewall_name        = "afw-eus2-hub-01"
+firewall_policy_name = "afwp-eus2-hub-01"
 firewall_sku_tier    = "Standard"
 firewall_pip_name    = "pip-afw-eus2-hub-01"
 firewall_pip_v6_name = "pip-afw-eus2-hub-01-v6"

@@ -21,6 +21,16 @@ resource "azurerm_public_ip" "firewall_v6" {
 }
 
 # ---------------------------------------------------------
+# Azure Firewall Policy
+# ---------------------------------------------------------
+resource "azurerm_firewall_policy" "hub" {
+  name                = var.firewall_policy_name
+  resource_group_name = azurerm_resource_group.hub.name
+  location            = azurerm_resource_group.hub.location
+  sku                 = var.firewall_sku_tier
+}
+
+# ---------------------------------------------------------
 # Azure Firewall (dual-stack)
 # ---------------------------------------------------------
 resource "azurerm_firewall" "hub" {
@@ -29,6 +39,7 @@ resource "azurerm_firewall" "hub" {
   location            = azurerm_resource_group.hub.location
   sku_name            = "AZFW_VNet"
   sku_tier            = var.firewall_sku_tier
+  firewall_policy_id  = azurerm_firewall_policy.hub.id
   zones               = ["1", "2", "3"]
 
   # Primary IPv4 configuration – must specify subnet_id
