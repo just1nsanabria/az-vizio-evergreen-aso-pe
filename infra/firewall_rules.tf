@@ -28,9 +28,9 @@ resource "azurerm_firewall_policy_rule_collection_group" "network" {
   }
 }
 
-# Application rules (processed after network rules – priority 200)
-resource "azurerm_firewall_policy_rule_collection_group" "application" {
-  name               = "rcg-application"
+# Application rules – AKS & infrastructure (priority 200)
+resource "azurerm_firewall_policy_rule_collection_group" "aks_infra" {
+  name               = "rcg-aks-infra"
   firewall_policy_id = azurerm_firewall_policy.hub.id
   priority           = 200
 
@@ -156,6 +156,13 @@ resource "azurerm_firewall_policy_rule_collection_group" "application" {
       }
     }
   }
+}
+
+# Application rules – GitHub & CI tooling (priority 300)
+resource "azurerm_firewall_policy_rule_collection_group" "github_ci" {
+  name               = "rcg-github-ci"
+  firewall_policy_id = azurerm_firewall_policy.hub.id
+  priority           = 300
 
   # GitHub – required for Actions Runner Controller (ARC)
   # The self-hosted runner inside hub AKS must reach GitHub to:
@@ -165,7 +172,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "application" {
   #     *.blob.core.windows.net, *.pkg.github.com, *.pkg.githubusercontent.com)
   application_rule_collection {
     name     = "arc-github-actions"
-    priority = 130
+    priority = 100
     action   = "Allow"
 
     rule {
@@ -255,16 +262,22 @@ resource "azurerm_firewall_policy_rule_collection_group" "application" {
       }
     }
   }
+}
 
-  # ---------------------------------------------------------
-  # TESTING ONLY – Wildcard allow-all HTTP/HTTPS
-  # Allows all outbound web traffic from the hub VNet so CI
-  # tooling install (apt, curl, etc.) doesn't hit individual
-  # FQDN blocks. Remove or tighten before production use.
-  # ---------------------------------------------------------
+# ---------------------------------------------------------
+# TESTING ONLY – Wildcard allow-all HTTP/HTTPS (priority 900)
+# Allows all outbound web traffic from the hub VNet so CI
+# tooling install (apt, curl, etc.) doesn't hit individual
+# FQDN blocks. Remove or tighten before production use.
+# ---------------------------------------------------------
+resource "azurerm_firewall_policy_rule_collection_group" "allow_all" {
+  name               = "rcg-allow-all"
+  firewall_policy_id = azurerm_firewall_policy.hub.id
+  priority           = 900
+
   application_rule_collection {
     name     = "arc-allow-all-web"
-    priority = 500
+    priority = 100
     action   = "Allow"
 
     rule {
