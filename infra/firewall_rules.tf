@@ -28,9 +28,10 @@ resource "azurerm_firewall_policy_rule_collection_group" "network" {
   }
 }
 
-# Application rules – AKS & infrastructure (priority 200)
-resource "azurerm_firewall_policy_rule_collection_group" "aks_infra" {
-  name               = "rcg-aks-infra"
+# Application rules – AKS FQDN tag (priority 200)
+# Isolated from destination_fqdns rules to avoid Azure API conflicts
+resource "azurerm_firewall_policy_rule_collection_group" "aks_fqdn_tag" {
+  name               = "rcg-aks-fqdn-tag"
   firewall_policy_id = azurerm_firewall_policy.hub.id
   priority           = 200
 
@@ -51,6 +52,13 @@ resource "azurerm_firewall_policy_rule_collection_group" "aks_infra" {
       destination_fqdn_tags = ["AzureKubernetesService"]
     }
   }
+}
+
+# Application rules – container registries & Azure services (priority 300)
+resource "azurerm_firewall_policy_rule_collection_group" "aks_infra" {
+  name               = "rcg-aks-infra"
+  firewall_policy_id = azurerm_firewall_policy.hub.id
+  priority           = 300
 
   # Container registries – required for cert-manager and ASO image pulls
   application_rule_collection {
@@ -158,11 +166,11 @@ resource "azurerm_firewall_policy_rule_collection_group" "aks_infra" {
   }
 }
 
-# Application rules – GitHub & CI tooling (priority 300)
+# Application rules – GitHub & CI tooling (priority 400)
 resource "azurerm_firewall_policy_rule_collection_group" "github_ci" {
   name               = "rcg-github-ci"
   firewall_policy_id = azurerm_firewall_policy.hub.id
-  priority           = 300
+  priority           = 400
 
   # GitHub – required for Actions Runner Controller (ARC)
   # The self-hosted runner inside hub AKS must reach GitHub to:
