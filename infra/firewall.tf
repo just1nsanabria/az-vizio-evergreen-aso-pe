@@ -8,6 +8,10 @@ resource "azurerm_public_ip" "firewall" {
   allocation_method   = "Static"
   sku                 = "Standard"
   zones               = ["1", "2", "3"]
+
+  lifecycle {
+    ignore_changes = [ip_tags]
+  }
 }
 
 resource "azurerm_public_ip" "firewall_v6" {
@@ -18,6 +22,10 @@ resource "azurerm_public_ip" "firewall_v6" {
   sku                 = "Standard"
   ip_version          = "IPv6"
   zones               = ["1", "2", "3"]
+
+  lifecycle {
+    ignore_changes = [ip_tags]
+  }
 }
 
 # ---------------------------------------------------------
