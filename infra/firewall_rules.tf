@@ -8,6 +8,8 @@ resource "azurerm_firewall_policy_rule_collection_group" "network" {
   firewall_policy_id = azurerm_firewall_policy.hub.id
   priority           = 100
 
+  depends_on = [azurerm_firewall.hub]
+
   # NTP – required for node time sync
   network_rule_collection {
     name     = "nrc-ntp"
@@ -35,6 +37,8 @@ resource "azurerm_firewall_policy_rule_collection_group" "aks_fqdn_tag" {
   firewall_policy_id = azurerm_firewall_policy.hub.id
   priority           = 200
 
+  depends_on = [azurerm_firewall.hub]
+
   # AKS-required FQDNs (Microsoft-maintained FQDN tag covers the AKS control
   # plane, node image downloads, and Azure services required for cluster health)
   application_rule_collection {
@@ -59,6 +63,8 @@ resource "azurerm_firewall_policy_rule_collection_group" "aks_infra" {
   name               = "rcg-aks-infra"
   firewall_policy_id = azurerm_firewall_policy.hub.id
   priority           = 300
+
+  depends_on = [azurerm_firewall.hub]
 
   # Container registries – required for cert-manager and ASO image pulls
   application_rule_collection {
@@ -172,6 +178,8 @@ resource "azurerm_firewall_policy_rule_collection_group" "github_ci" {
   firewall_policy_id = azurerm_firewall_policy.hub.id
   priority           = 400
 
+  depends_on = [azurerm_firewall.hub]
+
   # GitHub – required for Actions Runner Controller (ARC)
   # The self-hosted runner inside hub AKS must reach GitHub to:
   #   - Register the runner (api.github.com)
@@ -282,6 +290,8 @@ resource "azurerm_firewall_policy_rule_collection_group" "allow_all" {
   name               = "rcg-allow-all"
   firewall_policy_id = azurerm_firewall_policy.hub.id
   priority           = 900
+
+  depends_on = [azurerm_firewall.hub]
 
   application_rule_collection {
     name     = "arc-allow-all-web"
