@@ -276,7 +276,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "github_ci" {
 # TESTING ONLY – Wildcard allow-all HTTP/HTTPS (priority 900)
 # Allows all outbound web traffic from the hub VNet so CI
 # tooling install (apt, curl, etc.) doesn't hit individual
-# FQDN blocks. Remove or tighten before production use.
+# FQDN blocks. Remove or tighten before sandbox use.
 # ---------------------------------------------------------
 resource "azurerm_firewall_policy_rule_collection_group" "allow_all" {
   name               = "rcg-allow-all"

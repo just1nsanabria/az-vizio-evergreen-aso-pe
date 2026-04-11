@@ -4,7 +4,7 @@ name: "Phase 2 – Kubernetes Manifests (ASO)"
 # private API server. Install Actions Runner Controller (ARC) after Phase 1
 # completes — see the Deployment Guide in README.md.
 #
-# All steps are gated behind the `production` environment (same approval gate
+# All steps are gated behind the `sandbox` environment (same approval gate
 # as Terraform) and must be triggered manually in the correct order.
 
 on:
@@ -34,7 +34,7 @@ jobs:
   deploy:
     name: "Deploy ${{ github.event.inputs.step }}"
     runs-on: arc-runner-set     # self-hosted ARC runner inside hub AKS
-    environment: production     # requires manual approval before proceeding
+    environment: sandbox     # requires manual approval before proceeding
 
     steps:
       - name: Checkout

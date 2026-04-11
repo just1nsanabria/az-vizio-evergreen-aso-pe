@@ -209,13 +209,13 @@ az identity federated-credential create \
   --subject "repo:${REPO}:ref:refs/heads/main" \
   --audiences "api://AzureADTokenExchange"
 
-# For the production environment (approval gate)
+# For the sandbox environment (approval gate)
 az identity federated-credential create \
-  --name fc-gh-production \
+  --name fc-gh-sandbox \
   --identity-name mi-github-actions \
   --resource-group rg-eus2-evergreen-mgmt \
   --issuer "https://token.actions.githubusercontent.com" \
-  --subject "repo:${REPO}:environment:production" \
+  --subject "repo:${REPO}:environment:sandbox" \
   --audiences "api://AzureADTokenExchange"
 ```
 
@@ -315,7 +315,7 @@ hub_dns_inbound_subnet_prefix = "10.0.3.192/28"
 
 ### 5. GitHub Actions environment (approval gate)
 
-Go to **Settings → Environments → New environment**, name it `production`, and add yourself as a required reviewer. Both the infra and manifests workflows gate apply/deploy steps behind this environment.
+Go to **Settings → Environments → New environment**, name it `sandbox`, and add yourself as a required reviewer. Both the infra and manifests workflows gate apply/deploy steps behind this environment.
 
 ---
 
@@ -327,7 +327,7 @@ Push any change to `infra/**` or `main` branch, or manually dispatch:
 
 **Actions → Phase 1 – Terraform Infrastructure → Run workflow → action: `apply`**
 
-The Plan job runs first (no approval needed). The Apply job then waits for a `production` environment approval before executing.
+The Plan job runs first (no approval needed). The Apply job then waits for a `sandbox` environment approval before executing.
 
 > VPN Gateway takes ~45 minutes to provision — this is normal.
 
@@ -386,7 +386,7 @@ Trigger each step individually in order:
 | 3 | `03-spoke-cluster` | Applies `ManagedCluster` CRD, waits up to 20 min for spoke AKS Ready |
 | 4 | `04-private-endpoint` | Creates PE in `snet-pe`, links spoke DNS zone to hub VNet via ASO |
 
-Each run requires `production` environment approval before executing.
+Each run requires `sandbox` environment approval before executing.
 
 ---
 

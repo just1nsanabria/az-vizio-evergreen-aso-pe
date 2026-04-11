@@ -166,8 +166,8 @@ jobs:
 
   # ────────────────────────────────────────────────────────────────────────────
   # JOB 2: Apply
-  # Requires the `production` GitHub Environment (configure required reviewers
-  # under Settings → Environments → production).
+  # Requires the `sandbox` GitHub Environment (configure required reviewers
+  # under Settings → Environments → sandbox).
   # Only runs on push-to-main or approved workflow_dispatch apply/destroy.
   # Downloads the exact plan artifact from the Plan job — no re-plan surprise.
   # ────────────────────────────────────────────────────────────────────────────
@@ -180,7 +180,7 @@ jobs:
       github.event_name != 'schedule' &&
       github.event.inputs.action != 'plan'
     runs-on: ubuntu-latest
-    environment: production        # ← manual approval gate lives here
+    environment: sandbox        # ← manual approval gate lives here
     defaults:
       run:
         working-directory: infra
@@ -212,7 +212,7 @@ jobs:
           TF_VARS_CONTENT: ${{ secrets.TF_VARS }}
         run: printf '%s' "$TF_VARS_CONTENT" > terraform.tfvars
 
-      # Download the binary plan produced by the Plan job
+      # Download the binary plan from the Plan job
       - name: Download plan artifact
         if: github.event.inputs.action != 'destroy'
         uses: actions/download-artifact@v4
