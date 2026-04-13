@@ -60,28 +60,3 @@ resource "azurerm_virtual_network_gateway" "hub" {
     azurerm_subnet.gateway,
   ]
 }
-
-# ---------------------------------------------------------
-# Patch VPN Gateway P2S custom DNS servers via azapi
-#
-# The azurerm provider does not expose customDnsServers on the
-# vpnClientConfiguration object. azapi_update_resource issues a
-# PATCH against the gateway REST API to add this single property
-# without replacing the rest of the gateway configuration.
-# This pushes the DNS Private Resolver inbound endpoint IP to every
-# P2S OpenVPN client as a dhcp-option DNS entry automatically.
-# ---------------------------------------------------------
-resource "azapi_update_resource" "vpn_gateway_dns" {
-  type        = "Microsoft.Network/virtualNetworkGateways@2023-11-01"
-  resource_id = azurerm_virtual_network_gateway.hub.id
-
-  body = {
-    properties = {
-      vpnClientConfiguration = {
-        customDnsServers = [
-          azurerm_private_dns_resolver_inbound_endpoint.hub.ip_configurations[0].private_ip_address
-        ]
-      }
-    }
-  }
-}

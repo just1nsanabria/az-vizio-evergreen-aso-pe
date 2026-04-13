@@ -22,12 +22,6 @@ terraform {
       source  = "hashicorp/azurerm"
       version = ">= 3.90.0"
     }
-    # azapi is used to configure properties not yet exposed by the azurerm
-    # provider (e.g. VPN gateway P2S custom DNS servers).
-    azapi = {
-      source  = "azure/azapi"
-      version = ">= 1.13.0"
-    }
   }
 }
 
@@ -40,5 +34,3 @@ provider "azurerm" {
 
   subscription_id = var.subscription_id
 }
-
-provider "azapi" {}
