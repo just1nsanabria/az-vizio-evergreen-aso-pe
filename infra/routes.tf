@@ -17,6 +17,41 @@ locals {
 # overriding the forced-tunnel defaults.
 # ---------------------------------------------------------
 
+# --- Hub: GatewaySubnet ---
+# Forces P2S-originated traffic destined for spoke VNets through the firewall
+# so routing is symmetric. Without this, the forward path (VPN GW → spoke)
+# bypasses the firewall via VNet peering while the return path (spoke → 0.0.0.0/0)
+# hits the firewall with no session state, causing the connection to be dropped.
+resource "azurerm_route_table" "gateway" {
+  name                          = var.hub_gw_rt_name
+  resource_group_name           = azurerm_resource_group.hub.name
+  location                      = azurerm_resource_group.hub.location
+  bgp_route_propagation_enabled = false
+}
+
+resource "azurerm_route" "gateway_to_spoke_v4" {
+  name                   = "route-to-spoke-v4"
+  resource_group_name    = azurerm_resource_group.hub.name
+  route_table_name       = azurerm_route_table.gateway.name
+  address_prefix         = var.spoke_vnet_address_space[0]
+  next_hop_type          = "VirtualAppliance"
+  next_hop_in_ip_address = local.fw_private_ip_v4
+}
+
+resource "azurerm_route" "gateway_to_spoke2_v4" {
+  name                   = "route-to-spoke2-v4"
+  resource_group_name    = azurerm_resource_group.hub.name
+  route_table_name       = azurerm_route_table.gateway.name
+  address_prefix         = var.spoke2_vnet_address_space[0]
+  next_hop_type          = "VirtualAppliance"
+  next_hop_in_ip_address = local.fw_private_ip_v4
+}
+
+resource "azurerm_subnet_route_table_association" "gateway" {
+  subnet_id      = azurerm_subnet.gateway.id
+  route_table_id = azurerm_route_table.gateway.id
+}
+
 # --- Hub: AKS subnet ---
 resource "azurerm_route_table" "hub_aks" {
   name                          = var.hub_aks_rt_name

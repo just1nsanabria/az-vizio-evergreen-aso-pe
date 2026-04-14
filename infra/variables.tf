@@ -122,6 +122,12 @@ variable "firewall_private_ip_v6" {
 # ---------------------------------------------------------
 # Route Tables
 # ---------------------------------------------------------
+variable "hub_gw_rt_name" {
+  description = "Name of the route table for the hub GatewaySubnet."
+  type        = string
+  default     = "rt-hub-GatewaySubnet"
+}
+
 variable "hub_aks_rt_name" {
   description = "Name of the route table for the hub AKS subnet."
   type        = string
