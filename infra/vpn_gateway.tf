@@ -60,39 +60,3 @@ resource "azurerm_virtual_network_gateway" "hub" {
     azurerm_subnet.gateway,
   ]
 }
-
-# ---------------------------------------------------------
-# Patch VPN Gateway P2S custom DNS servers via azapi
-#
-# The azurerm provider does not expose customDnsServers on the
-# vpnClientConfiguration object. azapi_update_resource issues a
-# PATCH against the gateway REST API to add this single property
-# without replacing the rest of the gateway configuration.
-#
-# IMPORTANT: customDnsServers is set at the GATEWAY level, not
-# the VNet level. Setting dns_servers on the hub VNet itself
-# breaks the gateway's control plane communication with Azure
-# (the gateway can no longer resolve management endpoints).
-#
-# replace_triggered_by ensures the PATCH is re-applied whenever
-# azurerm does a full PUT on the gateway (which strips the
-# customDnsServers property that azurerm doesn't manage).
-# ---------------------------------------------------------
-resource "azapi_update_resource" "vpn_gateway_dns" {
-  type        = "Microsoft.Network/virtualNetworkGateways@2024-05-01"
-  resource_id = azurerm_virtual_network_gateway.hub.id
-
-  body = {
-    properties = {
-      vpnClientConfiguration = {
-        customDnsServers = [
-          azurerm_private_dns_resolver_inbound_endpoint.hub.ip_configurations[0].private_ip_address
-        ]
-      }
-    }
-  }
-
-  lifecycle {
-    replace_triggered_by = [azurerm_virtual_network_gateway.hub.id]
-  }
-}

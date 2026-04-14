@@ -40,7 +40,7 @@ spec:
   agentPoolProfiles:
     - name: system
       count: 3
-      vmSize: Standard_D4s_v3
+      vmSize: Standard_D4as_v7
       osType: Linux
       mode: System
       # Dual-stack node pool
