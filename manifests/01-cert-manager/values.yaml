@@ -5,5 +5,3 @@ replicaCount: 2
 global:
   leaderElection:
     namespace: cert-manager
-
-# Tolerations / node selectors can be added here if needed

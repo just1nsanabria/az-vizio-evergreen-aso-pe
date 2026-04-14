@@ -1,15 +1,4 @@
-# ASO PrivateDnsZonesVirtualNetworkLink
-#
-# Links the hub-owned shadow DNS zone (dns-zone.yaml) to the hub VNet.
-# This makes the spoke API server FQDN resolvable from hub workloads and
-# VPN clients, resolving to the PE NIC IP (10.0.3.x) in hub snet-pe.
-#
-# Owner is the hub-RG zone created by dns-zone.yaml — NOT the AKS-managed
-# zone in the MC_ resource group. This keeps hub and spoke DNS fully
-# independent: spoke pods continue to use the MC_ zone unmodified.
-#
-# <dns-zone-name> is substituted at runtime by the manifests workflow.
-#
+
 apiVersion: network.azure.com/v1api20200601
 kind: PrivateDnsZonesVirtualNetworkLink
 metadata:
@@ -18,7 +7,7 @@ metadata:
 spec:
   location: global
 
-  # Owner is the hub-RG zone, not the MC_ zone.
+
   owner:
     armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/rg-eus2-hub-evergreen-01/providers/Microsoft.Network/privateDnsZones/<dns-zone-name>
 

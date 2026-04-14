@@ -1,28 +1,14 @@
-# DNS Zone Group for the spoke AKS Private Endpoint.
-#
-# Links the private DNS zone auto-created by AKS (in the MC_ resource group)
-# to the private endpoint. Azure automatically creates an A record in that zone
-# pointing to the PE NIC private IP, so DNS queries for the spoke API server
-# FQDN resolve to a 10.x.x.x address from within the hub VNet and over VPN.
-#
-# The DNS zone name contains a cluster-unique GUID that is only known after the
-# ManagedCluster is provisioned. The manifests workflow queries it at runtime
-# and substitutes <dns-zone-name> via sed before kubectl apply — do not replace
-# this placeholder manually.
-#
+
 apiVersion: network.azure.com/v1api20220701
 kind: PrivateEndpointsPrivateDnsZoneGroup
 metadata:
   name: pe-aks-spoke-01-dnsgroup
   namespace: default
 spec:
-  # Must match the metadata.name of the PrivateEndpoint in private-endpoint.yaml
   owner:
     name: pe-aks-spoke-01
 
   privateDnsZoneConfigs:
     - name: aks-dns-config
       privateDnsZoneReference:
-        # <dns-zone-name> is substituted at runtime by the manifests workflow.
-        # Format: <guid>.privatelink.eastus2.azmk8s.io
         armId: /subscriptions/f9ea6521-6599-4549-a5f1-5986548330f8/resourceGroups/MC_rg-eus2-spoke-evergreen-01_aks-eus2-spoke-01_eastus2/providers/Microsoft.Network/privateDnsZones/<dns-zone-name>
