@@ -28,6 +28,23 @@ resource "azurerm_firewall_policy_rule_collection_group" "network" {
       protocols             = ["UDP"]
     }
   }
+
+  network_rule_collection {
+    name     = "nrc-p2s-to-spokes"
+    priority = 200
+    action   = "Allow"
+
+    rule {
+      name = "p2s-to-spokes"
+      source_addresses = [var.vpn_client_address_pool]
+      destination_addresses = [
+        var.spoke_vnet_address_space[0],
+        var.spoke2_vnet_address_space[0],
+      ]
+      destination_ports = ["*"]
+      protocols         = ["TCP", "UDP"]
+    }
+  }
 }
 
 # Application rules – AKS, container registries & Azure services (priority 200)
