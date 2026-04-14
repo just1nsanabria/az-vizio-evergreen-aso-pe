@@ -16,9 +16,9 @@ resource "azurerm_user_assigned_identity" "aso" {
 # service account so that workload identity token exchange works without
 # storing any client secrets.
 resource "azurerm_federated_identity_credential" "aso" {
-  name      = "aso-federated-credential"
-  parent_id = azurerm_user_assigned_identity.aso.id
-  audience  = ["api://AzureADTokenExchange"]
+  name                      = "aso-federated-credential"
+  user_assigned_identity_id = azurerm_user_assigned_identity.aso.id
+  audience                  = ["api://AzureADTokenExchange"]
   issuer    = azurerm_kubernetes_cluster.aks.oidc_issuer_url
   subject   = "system:serviceaccount:${var.aso_namespace}:azureserviceoperator-default"
 }
